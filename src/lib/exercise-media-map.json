@@ -1,0 +1,268 @@
+{
+  "supino_maquina": {
+    "datasetId": "0577",
+    "gif": "videos/0577-T0yTjgW.gif",
+    "image": "images/0577-T0yTjgW.jpg",
+    "nameEn": "lever chest press",
+    "equipment": "leverage machine"
+  },
+  "supino_barra": {
+    "datasetId": "0025",
+    "gif": "videos/0025-EIeI8Vf.gif",
+    "image": "images/0025-EIeI8Vf.jpg",
+    "nameEn": "barbell bench press",
+    "equipment": "barbell"
+  },
+  "supino_halter": {
+    "datasetId": "0289",
+    "gif": "videos/0289-SpYC0Kp.gif",
+    "image": "images/0289-SpYC0Kp.jpg",
+    "nameEn": "dumbbell bench press",
+    "equipment": "dumbbell"
+  },
+  "crucifixo_maq": {
+    "datasetId": "0596",
+    "gif": "videos/0596-v3xmPAR.gif",
+    "image": "images/0596-v3xmPAR.jpg",
+    "nameEn": "lever seated fly",
+    "equipment": "leverage machine"
+  },
+  "crucifixo_cabo": {
+    "datasetId": "0158",
+    "gif": "videos/0158-7saC5zz.gif",
+    "image": "images/0158-7saC5zz.jpg",
+    "nameEn": "cable decline fly",
+    "equipment": "cable"
+  },
+  "flexao": {
+    "datasetId": "3211",
+    "gif": "videos/3211-ZOuKWir.gif",
+    "image": "images/3211-ZOuKWir.jpg",
+    "nameEn": "kneeling push-up (male)",
+    "equipment": "body weight"
+  },
+  "remada_maquina": {
+    "datasetId": "0571",
+    "gif": "videos/0571-w2oRpuH.gif",
+    "image": "images/0571-w2oRpuH.jpg",
+    "nameEn": "lever alternating narrow grip seated row",
+    "equipment": "leverage machine"
+  },
+  "puxada_aberta": {
+    "datasetId": "0007",
+    "gif": "videos/0007-4IKbhHV.gif",
+    "image": "images/0007-4IKbhHV.jpg",
+    "nameEn": "alternate lateral pulldown",
+    "equipment": "cable"
+  },
+  "puxada_neutra": {
+    "datasetId": "2616",
+    "gif": "videos/2616-4c9BhzB.gif",
+    "image": "images/2616-4c9BhzB.jpg",
+    "nameEn": "cable lateral pulldown with v-bar",
+    "equipment": "cable"
+  },
+  "remada_sentada": {
+    "datasetId": "0159",
+    "gif": "videos/0159-kesXOpB.gif",
+    "image": "images/0159-kesXOpB.jpg",
+    "nameEn": "cable decline seated wide-grip row",
+    "equipment": "cable"
+  },
+  "remada_curvada": {
+    "datasetId": "0027",
+    "gif": "videos/0027-eZyBC3j.gif",
+    "image": "images/0027-eZyBC3j.jpg",
+    "nameEn": "barbell bent over row",
+    "equipment": "barbell"
+  },
+  "remada_serrote": {
+    "datasetId": "0292",
+    "gif": "videos/0292-C0MA9bC.gif",
+    "image": "images/0292-C0MA9bC.jpg",
+    "nameEn": "dumbbell one arm bent-over row",
+    "equipment": "dumbbell"
+  },
+  "desenvolvimento_maquina": {
+    "datasetId": "0590",
+    "gif": "videos/0590-2KGnL6M.gif",
+    "image": "images/0590-2KGnL6M.jpg",
+    "nameEn": "lever one arm shoulder press",
+    "equipment": "leverage machine"
+  },
+  "desenvolvimento_halter": {
+    "datasetId": "0405",
+    "gif": "videos/0405-znQUdHY.gif",
+    "image": "images/0405-znQUdHY.jpg",
+    "nameEn": "dumbbell seated shoulder press",
+    "equipment": "dumbbell"
+  },
+  "elevacao_lateral": {
+    "datasetId": "0311",
+    "gif": "videos/0311-AQ0mC4Y.gif",
+    "image": "images/0311-AQ0mC4Y.jpg",
+    "nameEn": "dumbbell full can lateral raise",
+    "equipment": "dumbbell"
+  },
+  "elevacao_lateral_cabo": {
+    "datasetId": "0178",
+    "gif": "videos/0178-goJ6ezq.gif",
+    "image": "images/0178-goJ6ezq.jpg",
+    "nameEn": "cable lateral raise",
+    "equipment": "cable"
+  },
+  "rosca_scott": {
+    "datasetId": "0059",
+    "gif": "videos/0059-SYJ4Bkt.gif",
+    "image": "images/0059-SYJ4Bkt.jpg",
+    "nameEn": "barbell lying preacher curl",
+    "equipment": "barbell"
+  },
+  "rosca_direta": {
+    "datasetId": "0023",
+    "gif": "videos/0023-Yza7XrQ.gif",
+    "image": "images/0023-Yza7XrQ.jpg",
+    "nameEn": "barbell alternate biceps curl",
+    "equipment": "barbell"
+  },
+  "rosca_alternada": {
+    "datasetId": "0285",
+    "gif": "videos/0285-BU15nH4.gif",
+    "image": "images/0285-BU15nH4.jpg",
+    "nameEn": "dumbbell alternate biceps curl",
+    "equipment": "dumbbell"
+  },
+  "rosca_cabo": {
+    "datasetId": "1630",
+    "gif": "videos/1630-BCGQ6J5.gif",
+    "image": "images/1630-BCGQ6J5.jpg",
+    "nameEn": "cable close grip curl",
+    "equipment": "cable"
+  },
+  "triceps_maquina": {
+    "datasetId": "0607",
+    "gif": "videos/0607-Ser9eQp.gif",
+    "image": "images/0607-Ser9eQp.jpg",
+    "nameEn": "lever triceps extension",
+    "equipment": "leverage machine"
+  },
+  "triceps_pulley": {
+    "datasetId": "0200",
+    "gif": "videos/0200-dU605di.gif",
+    "image": "images/0200-dU605di.jpg",
+    "nameEn": "cable pushdown (with rope attachment)",
+    "equipment": "cable"
+  },
+  "triceps_testa": {
+    "datasetId": "0060",
+    "gif": "videos/0060-h8LFzo9.gif",
+    "image": "images/0060-h8LFzo9.jpg",
+    "nameEn": "barbell lying triceps extension skull crusher",
+    "equipment": "barbell"
+  },
+  "leg_press": {
+    "datasetId": "2287",
+    "gif": "videos/2287-V07qpXy.gif",
+    "image": "images/2287-V07qpXy.jpg",
+    "nameEn": "lever alternate leg press",
+    "equipment": "leverage machine"
+  },
+  "agachamento": {
+    "datasetId": "0043",
+    "gif": "videos/0043-qXTaZnJ.gif",
+    "image": "images/0043-qXTaZnJ.jpg",
+    "nameEn": "barbell full squat",
+    "equipment": "barbell"
+  },
+  "hack": {
+    "datasetId": "0046",
+    "gif": "videos/0046-5VCj6iH.gif",
+    "image": "images/0046-5VCj6iH.jpg",
+    "nameEn": "barbell hack squat",
+    "equipment": "barbell"
+  },
+  "cadeira_extensora": {
+    "datasetId": "0585",
+    "gif": "videos/0585-my33uHU.gif",
+    "image": "images/0585-my33uHU.jpg",
+    "nameEn": "lever leg extension",
+    "equipment": "leverage machine"
+  },
+  "afundo": {
+    "datasetId": "3635",
+    "gif": "videos/3635-ecl28tP.gif",
+    "image": "images/3635-ecl28tP.jpg",
+    "nameEn": "dumbbell contralateral forward lunge",
+    "equipment": "dumbbell"
+  },
+  "cadeira_flexora": {
+    "datasetId": "0586",
+    "gif": "videos/0586-17lJ1kr.gif",
+    "image": "images/0586-17lJ1kr.jpg",
+    "nameEn": "lever lying leg curl",
+    "equipment": "leverage machine"
+  },
+  "stiff": {
+    "datasetId": "0085",
+    "gif": "videos/0085-wQ2c4XD.gif",
+    "image": "images/0085-wQ2c4XD.jpg",
+    "nameEn": "barbell romanian deadlift",
+    "equipment": "barbell"
+  },
+  "gluteo_maquina": {
+    "datasetId": "2286",
+    "gif": "videos/2286-OPqShYN.gif",
+    "image": "images/2286-OPqShYN.jpg",
+    "nameEn": "lever hip extension v. 2",
+    "equipment": "leverage machine"
+  },
+  "elevacao_pelvica": {
+    "datasetId": "1409",
+    "gif": "videos/1409-qKBpF7I.gif",
+    "image": "images/1409-qKBpF7I.jpg",
+    "nameEn": "barbell glute bridge",
+    "equipment": "barbell"
+  },
+  "cadeira_abdutora": {
+    "datasetId": "0597",
+    "gif": "videos/0597-CHpahtl.gif",
+    "image": "images/0597-CHpahtl.jpg",
+    "nameEn": "lever seated hip abduction",
+    "equipment": "leverage machine"
+  },
+  "abdominal_maquina": {
+    "datasetId": "0175",
+    "gif": "videos/0175-WW95auq.gif",
+    "image": "images/0175-WW95auq.jpg",
+    "nameEn": "cable kneeling crunch",
+    "equipment": "cable"
+  },
+  "prancha": {
+    "datasetId": "0464",
+    "gif": "videos/0464-CosupLu.gif",
+    "image": "images/0464-CosupLu.jpg",
+    "nameEn": "front plank with twist",
+    "equipment": "body weight"
+  },
+  "abdominal_supra": {
+    "datasetId": "0262",
+    "gif": "videos/0262-rbu5UUb.gif",
+    "image": "images/0262-rbu5UUb.jpg",
+    "nameEn": "cross body crunch",
+    "equipment": "body weight"
+  },
+  "esteira": {
+    "datasetId": "3666",
+    "gif": "videos/3666-rjiM4L3.gif",
+    "image": "images/3666-rjiM4L3.jpg",
+    "nameEn": "walking on incline treadmill",
+    "equipment": "leverage machine"
+  },
+  "bike": {
+    "datasetId": "2138",
+    "gif": "videos/2138-H1PESYI.gif",
+    "image": "images/2138-H1PESYI.jpg",
+    "nameEn": "stationary bike run v. 3",
+    "equipment": "stationary bike"
+  }
+}

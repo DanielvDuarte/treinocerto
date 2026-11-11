@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #13161B; }
+
+.an-spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+.an-toast { animation: pop .25s ease; } @keyframes pop { from { transform: translate(-50%,8px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
+.an-squat { animation: squat 1.8s ease-in-out infinite; transform-origin: 60px 110px; } @keyframes squat { 0%,100% { transform: translateY(0) scaleY(1);} 50% { transform: translateY(14px) scaleY(.82);} }
+.an-bench .arm,.an-fly .arm,.an-pushup .arm { animation: bench 1.8s ease-in-out infinite; transform-origin: 70px 64px; } @keyframes bench { 0%,100% { transform: translateY(0);} 50% { transform: translateY(16px);} }
+.an-pulldown .arm { animation: pulldown 1.8s ease-in-out infinite; transform-origin: 60px 30px; } @keyframes pulldown { 0%,100% { transform: translateY(0);} 50% { transform: translateY(14px) scaleY(.8);} }
+.an-row .arm { animation: row 1.6s ease-in-out infinite; } @keyframes row { 0%,100% { transform: translateX(0);} 50% { transform: translateX(-16px);} }
+.an-press .arm,.an-lateral .arm { animation: press 1.8s ease-in-out infinite; transform-origin: 60px 42px; } @keyframes press { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-12px);} }
+.an-curl .arm,.an-pushdown .arm { animation: curl 1.4s ease-in-out infinite; transform-origin: 48px 56px; } @keyframes curl { 0%,100% { transform: rotate(0);} 50% { transform: rotate(-38deg);} }
+.an-legpress .arm,.an-legext .arm { animation: legp 1.6s ease-in-out infinite; transform-origin: 62px 58px; } @keyframes legp { 0%,100% { transform: scaleX(1);} 50% { transform: scaleX(.7);} }
+.an-hipthrust .arm { animation: hip 1.8s ease-in-out infinite; transform-origin: 40px 50px; } @keyframes hip { 0%,100% { transform: rotate(0);} 50% { transform: rotate(-16deg);} }
+.an-abduction .arm { animation: abd 1.6s ease-in-out infinite; transform-origin: 60px 68px; } @keyframes abd { 0%,100% { transform: scaleX(.6);} 50% { transform: scaleX(1.15);} }
+.an-lunge .arm { animation: lunge 2s ease-in-out infinite; transform-origin: 56px 64px; } @keyframes lunge { 0%,100% { transform: translateY(0);} 50% { transform: translateY(10px);} }
+.an-plank .arm,.an-crunch .arm { animation: cr 1.8s ease-in-out infinite; transform-origin: 92px 80px; } @keyframes cr { 0%,100% { transform: rotate(0);} 50% { transform: rotate(-14deg);} }
+.an-run .arm { animation: run .7s ease-in-out infinite; transform-origin: 59px 50px; } @keyframes run { 0%,100% { transform: rotate(-12deg);} 50% { transform: rotate(12deg);} }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+input::placeholder, textarea::placeholder { color: #5E6675; }
