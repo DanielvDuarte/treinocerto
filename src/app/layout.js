@@ -29,7 +29,8 @@ export default function RootLayout({ children }) {
         {children}
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`,
+            // Guarda o beforeinstallprompt cedo (antes do React montar) para o botão "Instalar app".
+            __html: `window.__promptInstalar=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__promptInstalar=e;window.dispatchEvent(new Event('prompt-instalar-pronto'))});if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`,
           }}
         />
       </body>

@@ -31,7 +31,10 @@ src/
   components/
     Login.jsx                # botões Google/Apple (Supabase OAuth)
     Dashboard.jsx            # o app inteiro: Hoje, Plano, Evolução, Coach, Perfil
+    BodyMap.jsx              # boneco anatômico (frente/costas, masc/fem) — MuscleMap (MIT)
+    InstallApp.jsx           # convite/botão "Instalar app" (PWA)
   lib/
+    body-paths.json          # contornos do corpo (MuscleMap, MIT — ver THIRD_PARTY_NOTICES.md)
     exercises.js             # biblioteca dos 38 exercícios + montagem do plano
     exercise-media-map.json  # mapa dos 38 -> IDs/GIFs do dataset (texto MIT)
     exercise-catalog.json    # catálogo compacto dos 1.324 exercícios (MIT)
@@ -61,8 +64,13 @@ scripts/fetch-media.mjs      # baixa os GIFs p/ public/exercise-media (gitignore
     `NEXT_PUBLIC_EXERCISE_MEDIA=svg` (padrão, nosso SVG próprio, seguro p/ comercial)
     ou `=gymvisual` (mostra os GIFs). Rollback = trocar essa env. Ver `MIDIA.md`.
   - A parte MIT (nomes/estrutura, nos `.json`) pode ficar no repo.
-- **AGPL**: o projeto **openGym** foi usado só como referência de ideias; **nenhum
-  código dele foi copiado**, então a AGPL não se aplica ao TreinoCerto.
+- **AGPL**: o projeto **openGym** (e a cópia `datomoliveira/openGyn`) foi usado só
+  como referência de ideias; **nenhum código dele foi copiado**, então a AGPL não se
+  aplica ao TreinoCerto. O boneco anatômico vem direto do **MuscleMap** (MIT), a
+  mesma fonte que o openGym usa — não do código do openGym.
+- **Layout**: celular = coluna única + barra inferior; `lg` (≥1024px) = menu lateral
+  fixo e cards em grade. Treino: tabela SÉRIE/REPS/PESO; cargas do último treino
+  ficam em `tracking.lastLoads[refId]` e pré-preenchem o próximo.
 - **UI em português**; commits **sem** linha `Co-Authored-By`.
 
 ## Variáveis de ambiente

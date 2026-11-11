@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut } from "lucide-react";
+import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer } from "lucide-react";
+import BodyMap, { BodySexContext } from "@/components/BodyMap";
+import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
@@ -33,102 +35,42 @@ const COACH_SYSTEM =
 // Mantém a mesma assinatura usada na UI; agora chama /api/coach (chave protegida no servidor).
 const callClaude = (messages, system) => askCoach(messages, system);
 
-/* ============================== MAPA MUSCULAR ============================== */
+/* ============================== MAPA MUSCULAR ==============================
+   Boneco anatômico (MuscleMap, MIT) em src/components/BodyMap.jsx. */
 function MuscleMap({ body: b, size = 96 }) {
-  const side = b?.side || "front";
-  const key = b?.key || "full";
-  const on = (k) => (key === k || key === "full" ? "url(#hlg)" : C.muscle);
-  const base = C.muscle;
-  return (
-    <svg viewBox="0 0 120 230" width={size} height={size * (230 / 120)} aria-hidden="true">
-      <defs>
-        <linearGradient id="hlg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FF7A4D" /><stop offset="100%" stopColor={C.hl} />
-        </linearGradient>
-        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="2.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-      {/* cabeça e pescoço */}
-      <ellipse cx="60" cy="22" rx="13" ry="15" fill="#2C333F" />
-      <rect x="52" y="34" width="16" height="9" rx="4" fill="#2C333F" />
-      {side === "front" ? (
-        <g filter="url(#glow)">
-          {/* trapézio topo */}
-          <path d="M42 44 Q60 38 78 44 L74 54 Q60 49 46 54 Z" fill={base} />
-          {/* deltoides */}
-          <ellipse cx="33" cy="60" rx="12" ry="11" fill={on("delts")} />
-          <ellipse cx="87" cy="60" rx="12" ry="11" fill={on("delts")} />
-          {/* peito */}
-          <path d="M46 54 Q60 50 60 50 L60 84 Q50 86 44 78 Q42 64 46 54 Z" fill={on("peito")} />
-          <path d="M74 54 Q60 50 60 50 L60 84 Q70 86 76 78 Q78 64 74 54 Z" fill={on("peito")} />
-          {/* braço superior (bíceps) */}
-          <ellipse cx="26" cy="88" rx="8" ry="19" fill={on("biceps")} />
-          <ellipse cx="94" cy="88" rx="8" ry="19" fill={on("biceps")} />
-          {/* antebraços */}
-          <ellipse cx="23" cy="120" rx="6.5" ry="16" fill={base} />
-          <ellipse cx="97" cy="120" rx="6.5" ry="16" fill={base} />
-          {/* abdômen */}
-          <rect x="49" y="86" width="22" height="42" rx="8" fill={on("abs")} />
-          <line x1="60" y1="88" x2="60" y2="126" stroke="#1d2530" strokeWidth="1.5" />
-          <line x1="50" y1="100" x2="70" y2="100" stroke="#1d2530" strokeWidth="1.5" />
-          <line x1="50" y1="112" x2="70" y2="112" stroke="#1d2530" strokeWidth="1.5" />
-          {/* pelve */}
-          <path d="M46 128 Q60 134 74 128 L70 142 Q60 146 50 142 Z" fill="#2C333F" />
-          {/* coxas (quadríceps) */}
-          <path d="M48 142 Q44 178 50 196 Q56 178 58 150 Q54 144 48 142 Z" fill={on("quads")} />
-          <path d="M72 142 Q76 178 70 196 Q64 178 62 150 Q66 144 72 142 Z" fill={on("quads")} />
-          {/* panturrilhas */}
-          <ellipse cx="50" cy="212" rx="6.5" ry="15" fill={base} />
-          <ellipse cx="70" cy="212" rx="6.5" ry="15" fill={base} />
-        </g>
-      ) : (
-        <g filter="url(#glow)">
-          {/* trapézio */}
-          <path d="M44 44 Q60 38 76 44 L72 60 Q60 54 48 60 Z" fill={base} />
-          {/* deltoides post */}
-          <ellipse cx="33" cy="60" rx="12" ry="11" fill={base} />
-          <ellipse cx="87" cy="60" rx="12" ry="11" fill={base} />
-          {/* dorsais (lats) */}
-          <path d="M48 58 Q60 56 60 56 L60 104 Q50 102 44 88 Q44 70 48 58 Z" fill={on("lats")} />
-          <path d="M72 58 Q60 56 60 56 L60 104 Q70 102 76 88 Q76 70 72 58 Z" fill={on("lats")} />
-          {/* tríceps (parte de trás do braço) */}
-          <ellipse cx="26" cy="88" rx="8" ry="19" fill={on("triceps")} />
-          <ellipse cx="94" cy="88" rx="8" ry="19" fill={on("triceps")} />
-          <ellipse cx="23" cy="120" rx="6.5" ry="16" fill={base} />
-          <ellipse cx="97" cy="120" rx="6.5" ry="16" fill={base} />
-          {/* lombar */}
-          <rect x="51" y="104" width="18" height="20" rx="6" fill={base} />
-          {/* glúteos */}
-          <ellipse cx="50" cy="138" rx="13" ry="14" fill={on("glutes")} />
-          <ellipse cx="70" cy="138" rx="13" ry="14" fill={on("glutes")} />
-          {/* posterior de coxa */}
-          <path d="M48 150 Q44 182 50 198 Q56 182 58 156 Q54 150 48 150 Z" fill={on("hams")} />
-          <path d="M72 150 Q76 182 70 198 Q64 182 62 156 Q66 150 72 150 Z" fill={on("hams")} />
-          <ellipse cx="50" cy="214" rx="6.5" ry="14" fill={base} />
-          <ellipse cx="70" cy="214" rx="6.5" ry="14" fill={base} />
-        </g>
-      )}
-    </svg>
-  );
+  return <BodyMap body={b} height={Math.round(size * 1.9)} />;
 }
 
 /* ============================== MÍDIA DO EXERCÍCIO (GIF ou SVG) ==============================
-   Mostra o GIF real do exercício quando a fonte de mídia está ligada
-   (NEXT_PUBLIC_EXERCISE_MEDIA="gymvisual") e há arquivo; senão cai no
-   nosso mapa muscular SVG. Qualquer falha de carregamento também volta
-   ao SVG — o app nunca fica sem imagem. */
-function ExerciseMedia({ refId, body: b, size = 66, radius = 12 }) {
+   Com a fonte "gymvisual" ligada e GIF disponível: mostra o GIF do exercício
+   com um selo do músculo trabalhado no canto. Sem GIF (ou se falhar):
+   mostra o boneco anatômico. O app nunca fica sem imagem. */
+function ExerciseMedia({ refId, body: b, size = 66, radius = 12, badge = true, tall = false }) {
   const urls = gifUrls(refId);
   const [i, setI] = useState(0);
   if (urls.length && i < urls.length) {
+    const bs = Math.max(20, Math.round(size * 0.36));
     return (
-      <img key={i} src={urls[i]} alt="" width={size} height={size} loading="lazy" decoding="async"
-        onError={() => setI(i + 1)}
-        style={{ width: size, height: size, objectFit: "contain", borderRadius: radius, background: "#fff" }} />
+      <div style={{ width: size, height: size, borderRadius: radius, background: "#fff" }} className="relative overflow-hidden shrink-0">
+        <img key={i} src={urls[i]} alt="" width={size} height={size} loading="lazy" decoding="async"
+          onError={() => setI(i + 1)} style={{ width: size, height: size, objectFit: "contain" }} />
+        {badge && size >= 40 && (
+          <div style={{ width: bs, height: bs, background: C.bg2, border: `1px solid ${C.line}`, borderRadius: Math.round(bs * 0.28) }}
+            className="absolute bottom-1 right-1 flex items-center justify-center">
+            <BodyMap body={b} height={Math.round(bs * 0.9)} glow={false} />
+          </div>
+        )}
+      </div>
     );
   }
-  return <MuscleMap body={b} size={Math.round(size * 0.92)} />;
+  // Sem GIF: boneco em formato retrato (corpo inteiro cabe melhor).
+  const h = tall ? Math.round(size * 1.3) : size;
+  return (
+    <div style={{ width: size, height: h, borderRadius: radius, background: `radial-gradient(circle at 50% 35%, ${C.card2} 0%, ${C.bg2} 80%)` }}
+      className="flex items-center justify-center shrink-0 overflow-hidden">
+      <BodyMap body={b} height={Math.round(h * 0.94)} glow={h >= 100} />
+    </div>
+  );
 }
 
 /* ============================== ANIMAÇÃO DO MOVIMENTO ============================== */
@@ -191,7 +133,46 @@ function EquipBadge({ equip }) {
   return <span style={{ background: C.bg2, color: C.amberSoft, border: `1px solid ${C.line}`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><Icon size={11} /> {e.short}</span>;
 }
 
-function ExerciseCard({ ex, idx, done, onToggleSet, onSwap, onSwapTo, openInfo, setOpenInfo }) {
+// "10-12" -> "10"; "30s" -> "30s"
+const repsHint = (reps) => String(reps || "").split("-")[0];
+const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+
+function SetTable({ ex, done, log, prev, onToggle, onLog }) {
+  const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
+  return (
+    <div className="mt-3">
+      <div style={{ color: C.mut2, ...body }} className="grid grid-cols-[40px_1fr_1fr_44px] gap-2 px-2 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+        <span>Série</span><span className="text-center">Reps</span><span className="text-center">Peso (kg)</span><span />
+      </div>
+      <div className="space-y-1.5">
+        {Array.from({ length: ex.sets }).map((_, i) => {
+          const isDone = done.includes(i);
+          const row = log?.[i] || {};
+          const last = prev?.[i];
+          return (
+            <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
+              className="grid grid-cols-[40px_1fr_1fr_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
+              <span style={{ color: isDone ? C.mint : C.amber, ...display }} className="text-sm font-bold text-center">{i + 1}</span>
+              <input value={row.reps ?? ""} onChange={(e) => onLog(i, "reps", e.target.value)} inputMode="numeric"
+                placeholder={last?.reps ? String(last.reps) : repsHint(ex.reps)} aria-label={`Repetições da série ${i + 1}`}
+                style={{ color: C.text, ...body }} className={inputCls} />
+              <input value={row.kg ?? ""} onChange={(e) => onLog(i, "kg", e.target.value)} inputMode="decimal"
+                placeholder={last?.kg ? String(last.kg) : "—"} aria-label={`Peso da série ${i + 1}`}
+                style={{ color: C.text, ...body }} className={inputCls} />
+              <button onClick={() => onToggle(i)} aria-label={isDone ? `Desmarcar série ${i + 1}` : `Concluir série ${i + 1}`}
+                style={{ background: isDone ? C.mint : C.card2, border: `1px solid ${isDone ? C.mint : C.line}` }}
+                className="w-9 h-9 rounded-full flex items-center justify-center justify-self-end">
+                <Check size={16} color={isDone ? C.bg : C.mut} strokeWidth={3} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, openInfo, setOpenInfo }) {
   const total = ex.sets;
   const completed = done.length;
   const allDone = completed >= total;
@@ -203,29 +184,36 @@ function ExerciseCard({ ex, idx, done, onToggleSet, onSwap, onSwapTo, openInfo, 
   const equipsAvail = [...new Set(variants.map((v) => v.equip))];
   const handleSet = (i) => {
     const was = done.includes(i);
+    // Ao concluir sem digitar, usa o último treino (ou a meta) como valor.
+    if (!was) {
+      const row = log?.[i] || {};
+      if (row.reps == null || row.reps === "") onLog(i, "reps", prev?.[i]?.reps ? String(prev[i].reps) : repsHint(ex.reps));
+      if ((row.kg == null || row.kg === "") && prev?.[i]?.kg) onLog(i, "kg", String(prev[i].kg));
+    }
     onToggleSet(i);
     if (!was && completed + 1 < total) setResting(true);
   };
   const switchEquip = (equip) => {
-    const target = variants.find((v) => v.equip === equip) || variants.find((v) => v.equip === equip);
+    const target = variants.find((v) => v.equip === equip);
     if (target && target.id !== ex.refId) onSwapTo(idx, target);
   };
+  const best = (prev || []).reduce((m, s) => Math.max(m, num(s?.kg)), 0);
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${allDone ? C.mintDim : C.line}` }} className="rounded-2xl p-4">
-      <div className="flex gap-3">
-        <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="rounded-xl shrink-0 flex items-center justify-center overflow-hidden">
-          <div style={{ width: 72, height: 96 }} className="flex items-center justify-center"><ExerciseMedia refId={ex.refId} body={ex.body} size={70} /></div>
-        </div>
+    <div style={{ background: C.card, border: `1px solid ${allDone ? C.mintDim : C.line}` }} className="rounded-3xl p-4">
+      <div className="flex gap-3 items-start">
+        <ExerciseMedia refId={ex.refId} body={ex.body} size={88} radius={16} tall />
         <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <EquipBadge equip={ex.equip} />
+            {best > 0 && <span style={{ background: "rgba(70,224,160,.12)", color: C.mint, border: `1px solid ${C.mintDim}`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><Trophy size={10} /> Último: {best}kg</span>}
+          </div>
           <div className="flex items-start justify-between gap-2">
-            <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight">{ex.name}</h3>
-            {allDone && <Check size={18} style={{ color: C.mint }} className="shrink-0 mt-1" />}
+            <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight text-[17px]">{ex.name}</h3>
+            {allDone && <Check size={20} style={{ color: C.mint }} className="shrink-0" />}
           </div>
           <p style={{ color: C.hl, ...body }} className="text-xs font-semibold mt-0.5">{ex.muscle}</p>
-          <div className="mt-1"><EquipBadge equip={ex.equip} /></div>
-          <p style={{ color: C.mut, ...body }} className="text-xs mt-1">{ex.sets} séries · {ex.reps} reps · {ex.rest}s descanso</p>
-          <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5 truncate">🏋 {ex.machine}</p>
+          <p style={{ color: C.mut, ...body }} className="text-xs mt-1 flex items-center gap-1">{ex.sets} séries · {ex.reps} reps · <Timer size={12} /> {ex.rest}s</p>
         </div>
       </div>
 
@@ -241,15 +229,7 @@ function ExerciseCard({ ex, idx, done, onToggleSet, onSwap, onSwapTo, openInfo, 
         </div>
       )}
 
-      {/* séries */}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {Array.from({ length: total }).map((_, i) => {
-          const isDone = done.includes(i);
-          return (
-            <button key={i} onClick={() => handleSet(i)} style={{ background: isDone ? C.mint : C.bg2, color: isDone ? C.bg : C.mut, border: `1px solid ${isDone ? C.mint : C.line}`, ...body }} className="rounded-lg px-3 py-2 text-xs font-bold flex items-center gap-1">{isDone ? <Check size={14} /> : <span style={{ width: 14 }} />}Série {i + 1}</button>
-          );
-        })}
-      </div>
+      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} />
 
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
 
@@ -260,9 +240,10 @@ function ExerciseCard({ ex, idx, done, onToggleSet, onSwap, onSwapTo, openInfo, 
 
       {showInfo && (
         <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="rounded-xl p-3 mt-2">
-          <div className="flex gap-3 mb-2 items-center">
-            <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-lg shrink-0"><MoveFigure anim={ex.anim} size={72} /></div>
-            <p style={{ color: C.mut2, ...body }} className="text-[11px] leading-snug">Movimento (esquemático). A figura ao lado do título mostra o músculo trabalhado.</p>
+          <div className="flex gap-3 mb-3 items-center">
+            <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-lg shrink-0"><MoveFigure anim={ex.anim} size={84} /></div>
+            <div style={{ background: C.bg, border: `1px solid ${C.line}`, height: 120 }} className="rounded-lg shrink-0 px-2 flex items-center"><BodyMap body={ex.body} height={112} /></div>
+            <p style={{ color: C.mut2, ...body }} className="text-[11px] leading-snug">Movimento (esquemático) e músculos trabalhados: <b style={{ color: C.hl }}>alvo</b> em laranja forte, auxiliares em laranja claro.</p>
           </div>
           <ol className="list-decimal pl-4 space-y-1">{ex.instr.map((s, k) => <li key={k} style={{ color: C.text, ...body }} className="text-xs leading-relaxed">{s}</li>)}</ol>
           <div style={{ background: C.mintDim }} className="rounded-lg p-2 mt-2"><p style={{ color: C.mint, ...body }} className="text-xs leading-relaxed"><b>Postura:</b> {ex.cue}</p></div>
@@ -273,7 +254,29 @@ function ExerciseCard({ ex, idx, done, onToggleSet, onSwap, onSwapTo, openInfo, 
 }
 
 /* ============================== TELA: HOJE ============================== */
-function TodayScreen({ profile, plan, setPlan, session, setSession, onComplete }) {
+function useElapsed(startedAt) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!startedAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [startedAt]);
+  if (!startedAt) return "0:00";
+  const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+// Volume = soma de peso × reps das séries concluídas.
+function sessionVolume(day, session) {
+  return day.exercises.reduce((acc, _e, i) => {
+    const done = session.sets[i] || [];
+    const log = session.log?.[i] || {};
+    return acc + done.reduce((a, s) => a + num(log[s]?.kg) * num(log[s]?.reps), 0);
+  }, 0);
+}
+
+function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, onComplete }) {
   const [openInfo, setOpenInfo] = useState(null);
   const [swapFor, setSwapFor] = useState(null);
   const dayIdx = plan.cycleIndex % plan.days.length;
@@ -282,11 +285,20 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, onComplete }
   const doneSets = day.exercises.reduce((a, e, i) => a + ((session.sets[i] || []).length), 0);
   const pct = totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
   const allDone = day.exercises.every((e, i) => (session.sets[i] || []).length >= e.sets);
+  const elapsed = useElapsed(session.startedAt);
+  const volume = Math.round(sessionVolume(day, session));
 
   const toggleSet = (exIdx, setIdx) => setSession((s) => {
     const sets = { ...s.sets }; const arr = sets[exIdx] ? [...sets[exIdx]] : [];
     const pos = arr.indexOf(setIdx); if (pos >= 0) arr.splice(pos, 1); else arr.push(setIdx);
-    sets[exIdx] = arr; return { ...s, sets };
+    sets[exIdx] = arr; return { ...s, sets, startedAt: s.startedAt || Date.now() };
+  });
+  const logSet = (exIdx, setIdx, field, value) => setSession((s) => {
+    const log = { ...(s.log || {}) };
+    const ex = { ...(log[exIdx] || {}) };
+    ex[setIdx] = { ...(ex[setIdx] || {}), [field]: value.replace(/[^\d.,]/g, "").slice(0, 6) };
+    log[exIdx] = ex;
+    return { ...s, log };
   });
   const swapTo = (exIdx, libItem, keepProgress) => {
     setPlan((p) => {
@@ -296,41 +308,84 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, onComplete }
       });
       return { ...p, days };
     });
-    if (!keepProgress) setSession((s) => { const sets = { ...s.sets }; delete sets[exIdx]; return { ...s, sets }; });
+    setSession((s) => {
+      const log = { ...(s.log || {}) }; delete log[exIdx];
+      if (keepProgress) return { ...s, log };
+      const sets = { ...s.sets }; delete sets[exIdx];
+      return { ...s, sets, log };
+    });
     setSwapFor(null);
   };
 
   return (
-    <div className="pb-28">
-      <div style={{ background: `linear-gradient(135deg, ${C.card} 0%, ${C.bg2} 100%)`, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 mb-3">
-        <div className="flex items-center justify-between">
-          <div>
+    <div className="pb-28 lg:pb-10">
+      <InstallBanner C={C} body={body} />
+
+      <div style={{ background: `radial-gradient(120% 140% at 100% 0%, rgba(255,138,61,.18) 0%, ${C.card} 45%, ${C.bg2} 100%)`, border: `1px solid ${C.line}` }} className="rounded-3xl p-5 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p style={{ color: C.amber, ...body }} className="text-xs font-bold uppercase tracking-widest">Treino {day.id} · Hoje</p>
-            <h2 style={{ color: C.text, ...display }} className="text-xl font-bold mt-0.5">{day.name}</h2>
+            <h2 style={{ color: C.text, ...display }} className="text-2xl lg:text-3xl font-bold mt-0.5 truncate">{day.name}</h2>
+            <p style={{ color: C.mut, ...body }} className="text-xs mt-1">{day.exercises.length} exercícios · {totalSets} séries</p>
           </div>
-          <div style={{ background: C.bg, border: `3px solid ${C.amber}` }} className="rounded-full w-14 h-14 flex items-center justify-center"><span style={{ color: C.text, ...display }} className="text-sm font-bold">{pct}%</span></div>
+          <ProgressRing pct={pct} />
         </div>
-        <div style={{ background: C.bg }} className="h-1.5 rounded-full overflow-hidden mt-3"><div style={{ width: `${pct}%`, background: C.amber, transition: "width .3s" }} className="h-full" /></div>
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <HeroStat icon={Timer} label="Duração" value={elapsed} live={!!session.startedAt && !allDone} />
+          <HeroStat icon={Check} label="Séries" value={`${doneSets}/${totalSets}`} />
+          <HeroStat icon={Dumbbell} label="Volume (kg)" value={volume.toLocaleString("pt-BR")} />
+        </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-2 items-start">
         {day.exercises.map((ex, i) => (
           <ExerciseCard key={`${dayIdx}-${i}`} ex={ex} idx={i} done={session.sets[i] || []}
+            log={session.log?.[i]} prev={tracking.lastLoads?.[ex.refId]}
             onToggleSet={(setIdx) => toggleSet(i, setIdx)}
+            onLog={(setIdx, field, v) => logSet(i, setIdx, field, v)}
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
             openInfo={openInfo} setOpenInfo={setOpenInfo} />
         ))}
       </div>
 
-      <button onClick={onComplete} disabled={!allDone} style={{ background: allDone ? C.mint : C.card, color: allDone ? C.bg : C.mut2, ...display }} className="w-full rounded-2xl py-4 mt-4 font-bold text-base flex items-center justify-center gap-2">
-        <Trophy size={20} /> {allDone ? "Concluir treino do dia" : `Faltam ${totalSets - doneSets} séries`}
-      </button>
+      <div className="sticky bottom-[76px] lg:bottom-4 mt-4 z-30">
+        <button onClick={onComplete} disabled={!allDone}
+          style={{ background: allDone ? `linear-gradient(90deg, ${C.mint}, #7CF5B8)` : C.card, color: allDone ? C.bg : C.mut2, border: `1px solid ${allDone ? C.mint : C.line}`, boxShadow: allDone ? "0 10px 30px rgba(70,224,160,.25)" : "none", ...display }}
+          className="w-full rounded-full py-4 font-bold text-base uppercase tracking-wider flex items-center justify-center gap-2 lg:max-w-md lg:mx-auto">
+          <Trophy size={20} /> {allDone ? "Finalizar treino" : `Faltam ${totalSets - doneSets} séries`}
+        </button>
+      </div>
 
       {swapFor !== null && <SwapSheet ex={day.exercises[swapFor]} onClose={() => setSwapFor(null)} onPick={(li) => swapTo(swapFor, li, false)} askSwapAI={async (e, reason) => {
         const prompt = `A pessoa quer substituir "${e.name}" (músculo ${e.muscle}). Limitação: "${reason || "não informada"}". Sugira 1 a 2 alternativas para o MESMO grupo muscular respeitando a limitação. Diga nome e uma frase de execução. Se for dor/lesão, lembre de procurar avaliação profissional. Seja breve.`;
         return await callClaude([{ role: "user", content: prompt }], COACH_SYSTEM);
       }} />}
+    </div>
+  );
+}
+
+function ProgressRing({ pct, size = 64 }) {
+  const r = (size - 8) / 2, c = 2 * Math.PI * r;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={C.line} strokeWidth="6" fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={pct >= 100 ? C.mint : C.amber} strokeWidth="6" fill="none" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: "stroke-dashoffset .4s" }} />
+      </svg>
+      <span style={{ color: C.text, ...display }} className="absolute inset-0 flex items-center justify-center text-sm font-bold">{pct}%</span>
+    </div>
+  );
+}
+
+function HeroStat({ icon: Icon, label, value, live }) {
+  return (
+    <div style={{ background: "rgba(19,22,27,.55)", border: `1px solid ${C.line}` }} className="rounded-2xl px-3 py-2.5">
+      <p style={{ color: C.text, ...display }} className="text-lg font-bold tabular-nums leading-none flex items-center gap-1.5">
+        {live && <span style={{ background: C.mint }} className="w-2 h-2 rounded-full an-pulse" />}{value}
+      </p>
+      <p style={{ color: C.mut2, ...body }} className="text-[10px] mt-1 flex items-center gap-1 uppercase tracking-wide"><Icon size={11} /> {label}</p>
     </div>
   );
 }
@@ -352,8 +407,8 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
   const filters = [["todos", "Todos"], ["maquina", "Máquina"], ["livre", "Peso livre"], ["cabo", "Polia"]];
 
   return (
-    <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-50 flex items-end justify-center">
-      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg2, border: `1px solid ${C.line}`, maxWidth: 480 }} className="w-full rounded-t-3xl p-5 max-h-[88vh] overflow-y-auto">
+    <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="w-full max-w-[480px] lg:max-w-[560px] rounded-t-3xl lg:rounded-3xl p-5 max-h-[88vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-1">
           <h3 style={{ color: C.text, ...display }} className="text-lg font-bold">Trocar exercício</h3>
           <button onClick={onClose} style={{ color: C.mut }}><X size={20} /></button>
@@ -374,7 +429,7 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
         <div className="space-y-2">
           {alts.map((a) => (
             <button key={a.id} onClick={() => onPick(a)} style={{ background: C.card, border: `1px solid ${C.line}` }} className="w-full rounded-2xl p-3 flex items-center gap-3 text-left">
-              <div style={{ background: C.bg }} className="rounded-xl shrink-0 flex items-center justify-center" ><div style={{ width: 48, height: 60 }} className="flex items-center justify-center"><ExerciseMedia refId={a.id} body={a.body} size={46} /></div></div>
+              <ExerciseMedia refId={a.id} body={a.body} size={56} radius={12} />
               <div className="flex-1 min-w-0">
                 <p style={{ color: C.text, ...display }} className="font-bold text-sm leading-tight">{a.name}</p>
                 <div className="mt-1"><EquipBadge equip={a.equip} /></div>
@@ -392,15 +447,15 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
 /* ============================== TELA: PLANO ============================== */
 function PlanScreen({ plan, regenAI, aiBusy }) {
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-10">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 style={{ color: C.text, ...display }} className="text-xl font-bold">Seu plano</h2>
+          <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
           <p style={{ color: C.mut, ...body }} className="text-xs">Divisão {plan.splitName} · {plan.source === "ai" ? "personalizado por IA" : "modelo base"}</p>
         </div>
         <button onClick={regenAI} disabled={aiBusy} style={{ background: C.indigo, color: "#fff", ...body }} className="rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1">{aiBusy ? <Loader2 size={14} className="an-spin" /> : <Sparkles size={14} />} Personalizar com IA</button>
       </div>
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 items-start">
         {plan.days.map((d, di) => {
           const isNext = di === plan.cycleIndex % plan.days.length;
           return (
@@ -412,10 +467,10 @@ function PlanScreen({ plan, regenAI, aiBusy }) {
                 </div>
                 {isNext && <span style={{ color: C.amber, ...body }} className="text-xs font-bold">PRÓXIMO</span>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {d.exercises.map((e, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div style={{ background: C.bg2 }} className="rounded-lg shrink-0 flex items-center justify-center" ><div style={{ width: 30, height: 34 }} className="flex items-center justify-center"><ExerciseMedia refId={e.refId} body={e.body} size={28} radius={8} /></div></div>
+                  <div key={i} className="flex items-center gap-2.5">
+                    <ExerciseMedia refId={e.refId} body={e.body} size={40} radius={10} badge={false} />
                     <span style={{ color: C.text, ...body }} className="text-sm flex-1 min-w-0 truncate">{e.name}</span>
                     <span style={{ color: C.mut, ...body }} className="text-xs shrink-0">{e.sets}×{e.reps}</span>
                   </div>
@@ -440,17 +495,18 @@ function ProgressScreen({ profile, tracking, addWeight }) {
   const goalW = profile.goalWeight;
   const submit = () => { const n = parseFloat(String(val).replace(",", ".")); if (!n || n < 25 || n > 350) return; addWeight(n); setVal(""); };
   return (
-    <div className="pb-28">
-      <h2 style={{ color: C.text, ...display }} className="text-xl font-bold mb-3">Sua evolução</h2>
-      <div className="grid grid-cols-3 gap-2 mb-3">
+    <div className="pb-28 lg:pb-10">
+      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Sua evolução</h2>
+      <div className="grid grid-cols-3 gap-2 mb-3 lg:max-w-2xl">
         <Stat label="Peso atual" value={last != null ? `${last}kg` : "—"} color={C.text} />
         <Stat label="Variação" value={`${diff > 0 ? "+" : ""}${diff}kg`} color={diff <= 0 ? C.mint : C.amber} />
         <Stat label="Treinos feitos" value={tracking.history.length} color={C.amber} />
       </div>
-      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 mb-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_2fr] items-start">
+      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
         <p style={{ color: C.text, ...body }} className="text-sm font-semibold mb-2 flex items-center gap-1"><Scale size={16} style={{ color: C.amber }} /> Registrar peso de hoje</p>
         <div className="flex gap-2">
-          <input value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="ex.: 82.5" style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 rounded-xl px-3 py-2.5 outline-none" />
+          <input value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="ex.: 82.5" style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 min-w-0 rounded-xl px-3 py-2.5 outline-none" />
           <button onClick={submit} style={{ background: C.amber, color: C.bg, ...display }} className="rounded-xl px-5 font-bold flex items-center gap-1"><Plus size={18} /> Salvar</button>
         </div>
         <p style={{ color: C.mut2, ...body }} className="text-xs mt-2">Diário, semanal ou mensal — o gráfico monta sozinho. Medidas corporais merecem acompanhamento à parte (a cada 2–4 semanas).</p>
@@ -458,7 +514,7 @@ function ProgressScreen({ profile, tracking, addWeight }) {
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
         <p style={{ color: C.mut, ...body }} className="text-xs font-semibold uppercase tracking-wide mb-2">Peso ao longo do tempo</p>
         {data.length >= 1 ? (
-          <ResponsiveContainer width="100%" height={210}>
+          <ResponsiveContainer width="100%" height={260}>
             <LineChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={C.line} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: C.mut2, fontSize: 11 }} stroke={C.line} />
@@ -469,6 +525,7 @@ function ProgressScreen({ profile, tracking, addWeight }) {
             </LineChart>
           </ResponsiveContainer>
         ) : <p style={{ color: C.mut2, ...body }} className="text-sm py-8 text-center">Registre seu peso para ver o gráfico.</p>}
+      </div>
       </div>
     </div>
   );
@@ -499,7 +556,7 @@ function CoachScreen({ profile, chat, setChat }) {
   };
   const presets = ["Como melhorar minha técnica no agachamento?", "O que comer antes de treinar?", "Estou com dor no ombro, o que faço?"];
   return (
-    <div className="pb-28 flex flex-col" style={{ minHeight: "70vh" }}>
+    <div className="pb-28 lg:pb-24 flex flex-col lg:max-w-3xl" style={{ minHeight: "70vh" }}>
       <div className="flex items-center gap-2 mb-3">
         <div style={{ background: C.indigo }} className="rounded-xl w-9 h-9 flex items-center justify-center"><Sparkles size={18} color="#fff" /></div>
         <div><h2 style={{ color: C.text, ...display }} className="text-lg font-bold leading-none">Coach IA</h2><p style={{ color: C.mut, ...body }} className="text-xs">Dúvidas de treino, técnica e alimentação</p></div>
@@ -519,8 +576,8 @@ function CoachScreen({ profile, chat, setChat }) {
         {busy && <div className="flex justify-start"><div style={{ background: C.card, border: `1px solid ${C.line}`, color: C.mut }} className="rounded-2xl px-4 py-2.5 text-sm flex items-center gap-2"><Loader2 size={14} className="an-spin" /> digitando...</div></div>}
         <div ref={endRef} />
       </div>
-      <div style={{ background: C.bg }} className="fixed bottom-[68px] left-0 right-0 px-4 pb-2 pt-2">
-        <div style={{ maxWidth: 480 }} className="mx-auto flex gap-2">
+      <div style={{ background: C.bg }} className="fixed bottom-[68px] lg:bottom-0 left-0 lg:left-64 right-0 px-4 lg:px-8 pb-2 lg:pb-5 pt-2 z-30">
+        <div className="mx-auto lg:mx-0 max-w-[480px] md:max-w-[720px] lg:max-w-3xl flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Escreva sua dúvida..." style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 rounded-xl px-4 py-3 outline-none text-sm" />
           <button onClick={() => send()} disabled={busy} style={{ background: C.indigo }} className="rounded-xl w-12 flex items-center justify-center"><Send size={18} color="#fff" /></button>
         </div>
@@ -554,7 +611,7 @@ function Setup({ onDone, initial }) {
   const valid = p.name && p.height && p.weight;
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }} className="px-4 py-6">
-      <div style={{ maxWidth: 480 }} className="mx-auto">
+      <div className="mx-auto max-w-[480px] md:max-w-[560px]">
         <div className="flex items-center gap-2 mb-1"><div style={{ background: C.amber }} className="rounded-xl w-10 h-10 flex items-center justify-center"><Dumbbell size={22} color={C.bg} /></div><h1 style={{ color: C.text, ...display }} className="text-2xl font-bold">TreinoCerto</h1></div>
         <p style={{ color: C.mut, ...body }} className="text-sm mb-5">Vamos montar seu plano. Leva 1 minuto.</p>
         <div className="space-y-4">
@@ -646,7 +703,16 @@ export default function Dashboard({ userName }) {
   const completeDay = () => {
     const day = plan.days[plan.cycleIndex % plan.days.length];
     const next = plan.days[(plan.cycleIndex + 1) % plan.days.length];
-    setTracking((t) => ({ ...t, history: [...t.history, { date: today(), dayId: day.id, name: day.name }] }));
+    // Guarda as cargas de cada exercício para pré-preencher o próximo treino.
+    const lastLoads = {};
+    day.exercises.forEach((e, i) => {
+      const log = session.log?.[i] || {};
+      const rows = Array.from({ length: e.sets }, (_, s) => ({ kg: num(log[s]?.kg) || null, reps: num(log[s]?.reps) || null }));
+      if (rows.some((r) => r.kg || r.reps)) lastLoads[e.refId] = rows;
+    });
+    const volume = Math.round(sessionVolume(day, session));
+    const minutes = session.startedAt ? Math.round((Date.now() - session.startedAt) / 60000) : null;
+    setTracking((t) => ({ ...t, lastLoads: { ...(t.lastLoads || {}), ...lastLoads }, history: [...t.history, { date: today(), dayId: day.id, name: day.name, volume, minutes }] }));
     setWeighIn({ next });
   };
   const closeWeighIn = (weight) => {
@@ -686,31 +752,65 @@ export default function Dashboard({ userName }) {
   if (!profile || !plan) return <><Styles /><Setup onDone={finishSetup} /></>;
 
   const tabs = [{ k: "today", icon: Flame, label: "Hoje" }, { k: "plan", icon: Calendar, label: "Plano" }, { k: "progress", icon: LineIcon, label: "Evolução" }, { k: "coach", icon: MessageCircle, label: "Coach" }];
+  const firstName = profile.name.split(" ")[0];
 
   return (
+    <BodySexContext.Provider value={profile.sex}>
     <div style={{ background: C.bg, minHeight: "100vh", ...body }}>
       <Styles />
-      <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}` }} className="sticky top-0 z-40 px-4 py-3">
-        <div style={{ maxWidth: 480 }} className="mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold">Olá, {profile.name.split(" ")[0]}</span></div>
-          <button onClick={() => setTab("settings")} style={{ color: tab === "settings" ? C.amber : C.mut }}><User size={20} /></button>
+
+      {/* Menu lateral (computador) */}
+      <aside style={{ background: C.bg2, borderRight: `1px solid ${C.line}` }} className="hidden lg:flex fixed inset-y-0 left-0 w-64 z-40 flex-col p-5">
+        <div className="flex items-center gap-2.5 mb-8">
+          <div style={{ background: C.amber }} className="rounded-xl w-10 h-10 flex items-center justify-center"><Dumbbell size={22} color={C.bg} /></div>
+          <span style={{ color: C.text, ...display }} className="text-xl font-bold">TreinoCerto</span>
+        </div>
+        <nav className="space-y-1">
+          {[...tabs, { k: "settings", icon: User, label: "Perfil" }].map((t) => {
+            const on = tab === t.k; const Icon = t.icon;
+            return (
+              <button key={t.k} onClick={() => setTab(t.k)} style={{ background: on ? "rgba(255,138,61,.12)" : "transparent", color: on ? C.amber : C.mut, ...body }}
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold flex items-center gap-3 text-left">
+                <Icon size={19} /> {t.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mt-auto space-y-3">
+          <InstallButton C={C} body={body} />
+          <div style={{ border: `1px solid ${C.line}` }} className="rounded-xl p-3 flex items-center gap-2.5">
+            <div style={{ background: C.card2, color: C.amber, ...display }} className="rounded-full w-9 h-9 flex items-center justify-center font-bold">{firstName.slice(0, 1).toUpperCase()}</div>
+            <div className="min-w-0"><p style={{ color: C.text }} className="text-sm font-semibold truncate">{profile.name}</p><p style={{ color: C.mut2 }} className="text-xs truncate">{profile.goal} · {profile.level}</p></div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="lg:pl-64">
+      {/* Topo (celular/tablet) */}
+      <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}` }} className="lg:hidden sticky top-0 z-40 px-4 py-3">
+        <div className="mx-auto max-w-[480px] md:max-w-[720px] flex items-center justify-between">
+          <div className="flex items-center gap-2"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold">Olá, {firstName}</span></div>
+          <button onClick={() => setTab("settings")} style={{ color: tab === "settings" ? C.amber : C.mut }} aria-label="Perfil"><User size={20} /></button>
         </div>
       </div>
-      <div style={{ maxWidth: 480 }} className="mx-auto px-4 py-4">
-        {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} onComplete={completeDay} />}
+      <div className="mx-auto px-4 py-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
+        <p style={{ color: C.mut, ...body }} className="hidden lg:block text-sm mb-1">Olá, {firstName} 👋</p>
+        {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
         {tab === "plan" && <PlanScreen plan={plan} regenAI={regenAI} aiBusy={aiBusy} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
         {tab === "coach" && <CoachScreen profile={profile} chat={chat} setChat={setChat} />}
         {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
       </div>
-      <div style={{ background: C.bg2, borderTop: `1px solid ${C.line}` }} className="fixed bottom-0 left-0 right-0 z-40">
-        <div style={{ maxWidth: 480 }} className="mx-auto grid grid-cols-4">
+      </div>
+      <div style={{ background: C.bg2, borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }} className="lg:hidden fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto max-w-[480px] md:max-w-[720px] grid grid-cols-4">
           {tabs.map((t) => { const on = tab === t.k; const Icon = t.icon; return <button key={t.k} onClick={() => setTab(t.k)} className="py-2.5 flex flex-col items-center gap-0.5"><Icon size={22} color={on ? C.amber : C.mut2} /><span style={{ color: on ? C.amber : C.mut2, ...body }} className="text-[10px] font-semibold">{t.label}</span></button>; })}
         </div>
       </div>
       {weighIn && <WeighInModal nextDay={weighIn.next} onSave={closeWeighIn} onSkip={() => closeWeighIn(null)} />}
-      {toast && <div style={{ background: C.mintDim, border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440 }} className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-4 py-3 text-sm font-semibold text-center mx-4 an-toast">{toast}</div>}
+      {toast && <div style={{ background: C.mintDim, border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440 }} className="fixed bottom-20 lg:bottom-8 left-1/2 lg:left-[calc(50%+8rem)] -translate-x-1/2 z-50 rounded-2xl px-4 py-3 text-sm font-semibold text-center mx-4 an-toast">{toast}</div>}
     </div>
+    </BodySexContext.Provider>
   );
 }
 
@@ -718,8 +818,8 @@ function SettingsScreen({ profile, onReset, onSignOut, setProfile, setPlan, show
   const [editing, setEditing] = useState(false);
   if (editing) return <Setup initial={profile} onDone={(pp) => { const np = { ...pp, age: +pp.age || 0, height: +pp.height || 0, weight: +pp.weight || 0, goalWeight: +pp.goalWeight || 0 }; setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />;
   return (
-    <div className="pb-28">
-      <h2 style={{ color: C.text, ...display }} className="text-xl font-bold mb-3">Perfil</h2>
+    <div className="pb-28 lg:pb-10 lg:max-w-xl">
+      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Perfil</h2>
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 space-y-2">
         <Row k="Nome" v={profile.name} />
         <Row k="Idade / Altura / Peso" v={`${profile.age || "—"} anos · ${profile.height}cm · ${profile.weight}kg`} />
@@ -744,6 +844,8 @@ function Styles() {
       * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
       body { margin: 0; }
       .an-spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+      .an-pulse { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+      input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .an-toast { animation: pop .25s ease; } @keyframes pop { from { transform: translate(-50%,8px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
       .an-squat { animation: squat 1.8s ease-in-out infinite; transform-origin: 60px 110px; } @keyframes squat { 0%,100% { transform: translateY(0) scaleY(1);} 50% { transform: translateY(14px) scaleY(.82);} }
       .an-bench .arm,.an-fly .arm,.an-pushup .arm { animation: bench 1.8s ease-in-out infinite; transform-origin: 70px 64px; } @keyframes bench { 0%,100% { transform: translateY(0);} 50% { transform: translateY(16px);} }
