@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer } from "lucide-react";
-import BodyMap, { BodySexContext } from "@/components/BodyMap";
+import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan } from "@/lib/exercises";
@@ -69,39 +69,6 @@ function ExerciseMedia({ refId, body: b, size = 66, radius = 12, badge = true, t
     <div style={{ width: size, height: h, borderRadius: radius, background: `radial-gradient(circle at 50% 35%, ${C.card2} 0%, ${C.bg2} 80%)` }}
       className="flex items-center justify-center shrink-0 overflow-hidden">
       <BodyMap body={b} height={Math.round(h * 0.94)} glow={h >= 100} />
-    </div>
-  );
-}
-
-/* ============================== "COMO FAZER": MOVIMENTO + MÚSCULOS ==============================
-   Com GIF disponível: animação real grande + boneco anatômico ao lado.
-   Sem GIF (modo "svg" ou falha): figura esquemática + boneco anatômico. */
-function HowToMedia({ ex }) {
-  const urls = gifUrls(ex.refId);
-  const [i, setI] = useState(0);
-  const hasGif = urls.length > 0 && i < urls.length;
-  const legend = <p style={{ color: C.mut2, ...body }} className="text-[11px] leading-snug"><b style={{ color: C.hl }}>Alvo</b> em laranja forte · auxiliares em laranja claro.</p>;
-  if (hasGif) {
-    return (
-      <div className="mb-3">
-        <div className="flex gap-2 items-stretch">
-          <div style={{ background: "#fff", border: `1px solid ${C.line}` }} className="rounded-xl overflow-hidden flex items-center justify-center aspect-square flex-1 min-w-0 max-w-[320px]">
-            <img key={i} src={urls[i]} alt={`Execução: ${ex.name}`} loading="lazy" decoding="async" onError={() => setI(i + 1)} className="w-full h-full object-contain" />
-          </div>
-          <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-xl px-2 flex flex-col items-center justify-center gap-1">
-            <BodyMap body={ex.body} height={170} />
-            <span style={{ color: C.hl, ...body }} className="text-[10px] font-bold uppercase tracking-wide">{ex.muscle}</span>
-          </div>
-        </div>
-        <div className="mt-1.5">{legend}</div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex gap-3 mb-3 items-center">
-      <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-lg shrink-0"><MoveFigure anim={ex.anim} size={84} /></div>
-      <div style={{ background: C.bg, border: `1px solid ${C.line}`, height: 120 }} className="rounded-lg shrink-0 px-2 flex items-center"><BodyMap body={ex.body} height={112} /></div>
-      {legend}
     </div>
   );
 }
@@ -205,11 +172,10 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
   );
 }
 
-function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, openInfo, setOpenInfo }) {
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, onOpen }) {
   const total = ex.sets;
   const completed = done.length;
   const allDone = completed >= total;
-  const showInfo = openInfo === idx;
   const [resting, setResting] = useState(false);
 
   // variantes de equipamento do mesmo padrão de movimento
@@ -235,14 +201,14 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
   return (
     <div style={{ background: C.card, border: `1px solid ${allDone ? C.mintDim : C.line}` }} className="rounded-3xl p-4">
       <div className="flex gap-3 items-start">
-        <ExerciseMedia refId={ex.refId} body={ex.body} size={88} radius={16} tall />
+        <button onClick={() => onOpen("geral")} aria-label={`Ver detalhes de ${ex.name}`} className="shrink-0"><ExerciseMedia refId={ex.refId} body={ex.body} size={88} radius={16} tall /></button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
             <EquipBadge equip={ex.equip} />
             {best > 0 && <span style={{ background: "rgba(70,224,160,.12)", color: C.mint, border: `1px solid ${C.mintDim}`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><Trophy size={10} /> Último: {best}kg</span>}
           </div>
           <div className="flex items-start justify-between gap-2">
-            <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight text-[17px]">{ex.name}</h3>
+            <button onClick={() => onOpen("geral")} className="text-left"><h3 style={{ color: C.text, ...display }} className="font-bold leading-tight text-[17px] hover:underline decoration-1 underline-offset-2">{ex.name}</h3></button>
             {allDone && <Check size={20} style={{ color: C.mint }} className="shrink-0" />}
           </div>
           <p style={{ color: C.hl, ...body }} className="text-xs font-semibold mt-0.5">{ex.muscle}</p>
@@ -267,17 +233,9 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
 
       <div className="flex gap-2 mt-3">
-        <button onClick={() => setOpenInfo(showInfo ? null : idx)} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}` }} className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1"><Info size={14} /> Como fazer</button>
+        <button onClick={() => onOpen("como")} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}` }} className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1"><Info size={14} /> Como fazer</button>
         <button onClick={() => onSwap(idx)} style={{ background: C.bg2, color: C.amberSoft, border: `1px solid ${C.line}` }} className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1"><Replace size={14} /> Trocar</button>
       </div>
-
-      {showInfo && (
-        <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="rounded-xl p-3 mt-2">
-          <HowToMedia ex={ex} />
-          <ol className="list-decimal pl-4 space-y-1">{ex.instr.map((s, k) => <li key={k} style={{ color: C.text, ...body }} className="text-xs leading-relaxed">{s}</li>)}</ol>
-          <div style={{ background: C.mintDim }} className="rounded-lg p-2 mt-2"><p style={{ color: C.mint, ...body }} className="text-xs leading-relaxed"><b>Postura:</b> {ex.cue}</p></div>
-        </div>
-      )}
     </div>
   );
 }
@@ -306,7 +264,7 @@ function sessionVolume(day, session) {
 }
 
 function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, onComplete }) {
-  const [openInfo, setOpenInfo] = useState(null);
+  const [detail, setDetail] = useState(null); // { item, idx, tab }
   const [swapFor, setSwapFor] = useState(null);
   const dayIdx = plan.cycleIndex % plan.days.length;
   const day = plan.days[dayIdx];
@@ -366,6 +324,8 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
         </div>
       </div>
 
+      <DayMuscles day={day} />
+
       <div className="grid gap-3 lg:grid-cols-2 items-start">
         {day.exercises.map((ex, i) => (
           <ExerciseCard key={`${dayIdx}-${i}`} ex={ex} idx={i} done={session.sets[i] || []}
@@ -374,7 +334,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
             onLog={(setIdx, field, v) => logSet(i, setIdx, field, v)}
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
-            openInfo={openInfo} setOpenInfo={setOpenInfo} />
+            onOpen={(tab) => setDetail({ item: ex, idx: i, tab })} />
         ))}
       </div>
 
@@ -385,6 +345,14 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
           <Trophy size={20} /> {allDone ? "Finalizar treino" : `Faltam ${totalSets - doneSets} séries`}
         </button>
       </div>
+
+      {detail && (
+        <ExerciseDetail item={detail.item} startTab={detail.tab} prevLoads={tracking.lastLoads}
+          canUseToday={detail.idx != null && (detail.item.id || detail.item.refId) !== day.exercises[detail.idx]?.refId}
+          onUseToday={(li) => { swapTo(detail.idx, li, false); setDetail(null); }}
+          onClose={() => setDetail(null)}
+          onOpenItem={(li) => setDetail((d) => ({ item: li, idx: d?.idx ?? null, tab: "geral" }))} />
+      )}
 
       {swapFor !== null && <SwapSheet ex={day.exercises[swapFor]} onClose={() => setSwapFor(null)} onPick={(li) => swapTo(swapFor, li, false)} askSwapAI={async (e, reason) => {
         const prompt = `A pessoa quer substituir "${e.name}" (músculo ${e.muscle}). Limitação: "${reason || "não informada"}". Sugira 1 a 2 alternativas para o MESMO grupo muscular respeitando a limitação. Diga nome e uma frase de execução. Se for dor/lesão, lembre de procurar avaliação profissional. Seja breve.`;
@@ -415,6 +383,185 @@ function HeroStat({ icon: Icon, label, value, live }) {
         {live && <span style={{ background: C.mint }} className="w-2 h-2 rounded-full an-pulse" />}{value}
       </p>
       <p style={{ color: C.mut2, ...body }} className="text-[10px] mt-1 flex items-center gap-1 uppercase tracking-wide"><Icon size={11} /> {label}</p>
+    </div>
+  );
+}
+
+/* ============================== DETALHE DO EXERCÍCIO ==============================
+   Tela cheia no celular / painel lateral no computador. Abre ao tocar no
+   exercício: GIF grande, músculos (primário/secundário) com recorte do boneco,
+   seu progresso, equipamento e exercícios similares. */
+const GROUP_LABEL = { peito: "Peito", costas: "Costas", pernas: "Pernas", gluteo: "Glúteos", ombro: "Ombros", biceps: "Bíceps", triceps: "Tríceps", core: "Core", cardio: "Cardio" };
+
+function MuscleThumb({ slug, size = 56, main = true }) {
+  return (
+    <div style={{ width: size, height: size, background: `radial-gradient(circle at 50% 45%, ${C.card2} 0%, ${C.bg} 85%)`, border: `1px solid ${C.line}` }}
+      className="rounded-xl shrink-0 overflow-hidden flex items-center justify-center">
+      <BodyMap body={{ side: sideOf(slug) }} highlight={main ? { main: [slug], sec: [] } : { main: [], sec: [slug] }} crop={[slug]} height={size} glow={false} />
+    </div>
+  );
+}
+
+function SectionTitle({ children, right }) {
+  return (
+    <div className="flex items-center justify-between mt-6 mb-2.5">
+      <p style={{ color: C.mut, ...body }} className="text-[11px] font-bold uppercase tracking-widest">{children}</p>
+      {right}
+    </div>
+  );
+}
+
+function ExerciseDetail({ item, startTab = "geral", prevLoads, canUseToday, onUseToday, onClose, onOpenItem }) {
+  const refId = item.refId || item.id;
+  const lib = LIB_BY_ID[refId] || item;
+  const [tab, setTab] = useState(startTab);
+  const urls = gifUrls(refId);
+  const [gi, setGi] = useState(0);
+  const hasGif = urls.length > 0 && gi < urls.length;
+  const { main, sec } = musclesOf(lib.body);
+  const prev = prevLoads?.[refId];
+  const best = (prev || []).reduce((m, s) => Math.max(m, num(s?.kg)), 0);
+  const similar = byGroup(lib.group).filter((e) => e.id !== refId);
+  const E = EQUIP[lib.equip] || EQUIP.maquina; const EIcon = E.icon;
+
+  const panelRef = useRef(null);
+  useEffect(() => { setTab(startTab); setGi(0); panelRef.current?.scrollTo({ top: 0 }); }, [refId, startTab]);
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-[60] flex justify-end">
+      <div ref={panelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={lib.name}
+        style={{ background: C.bg2, borderLeft: `1px solid ${C.line}` }} className="w-full lg:max-w-[560px] h-full overflow-y-auto an-slide">
+        {/* mídia */}
+        <div style={{ background: hasGif ? "#fff" : `radial-gradient(circle at 50% 40%, ${C.card2} 0%, ${C.bg} 80%)` }} className="relative h-[340px] lg:h-[380px] flex items-center justify-center">
+          {hasGif
+            ? <img key={gi} src={urls[gi]} alt={`Execução: ${lib.name}`} onError={() => setGi(gi + 1)} className="h-full w-full object-contain" />
+            : <div className="flex items-center gap-4"><MoveFigure anim={lib.anim} size={190} /><BodyMap body={lib.body} height={210} /></div>}
+          <button onClick={onClose} aria-label="Fechar" style={{ background: "rgba(19,22,27,.75)", color: C.text, top: "calc(env(safe-area-inset-top) + 12px)" }}
+            className="absolute left-3 w-10 h-10 rounded-full flex items-center justify-center"><X size={20} /></button>
+          {hasGif && <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="absolute bottom-8 right-3 rounded-xl p-1.5"><BodyMap body={lib.body} height={74} glow={false} /></div>}
+        </div>
+
+        {/* folha */}
+        <div style={{ background: C.bg2 }} className="relative -mt-5 rounded-t-3xl px-5 pt-5 pb-28">
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            <span style={{ background: C.card2, color: C.mut, border: `1px solid ${C.line}`, ...body }} className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">{GROUP_LABEL[lib.group] || lib.group}</span>
+            <EquipBadge equip={lib.equip} />
+          </div>
+          <h2 style={{ color: C.text, ...display }} className="text-[26px] leading-tight font-bold">{lib.name}</h2>
+
+          <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="grid grid-cols-2 rounded-full p-1 mt-4">
+            {[["geral", "Visão geral"], ["como", "Como fazer"]].map(([k, l]) => (
+              <button key={k} onClick={() => setTab(k)} style={{ background: tab === k ? C.card2 : "transparent", color: tab === k ? C.text : C.mut, ...body }}
+                className="rounded-full py-2 text-xs font-bold uppercase tracking-wide">{l}</button>
+            ))}
+          </div>
+
+          {tab === "geral" ? (
+            <>
+              <SectionTitle>Músculos</SectionTitle>
+              <div className="space-y-2">
+                {[...main.map((s) => [s, true]), ...sec.map((s) => [s, false])].map(([s, isMain]) => (
+                  <div key={s} className="flex items-center gap-3">
+                    <MuscleThumb slug={s} main={isMain} />
+                    <span style={{ color: C.text, ...body }} className="flex-1 text-[15px] font-semibold">{MUSCLE_NAMES[s] || s}</span>
+                    <span style={{ background: isMain ? "rgba(255,138,61,.14)" : C.card, color: isMain ? C.amber : C.mut, border: `1px solid ${isMain ? "rgba(255,138,61,.35)" : C.line}`, ...body }}
+                      className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">{isMain ? "Primário" : "Secundário"}</span>
+                  </div>
+                ))}
+              </div>
+
+              <SectionTitle>Seu progresso</SectionTitle>
+              <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
+                {prev && prev.some((r) => r?.kg || r?.reps) ? (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span style={{ color: C.text, ...display }} className="text-2xl font-bold">{best ? `${best} kg` : "—"}</span>
+                      <span style={{ color: C.mut2, ...body }} className="text-xs">melhor carga do último treino</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {prev.map((r, i) => (r?.kg || r?.reps) ? <span key={i} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}`, ...body }} className="rounded-lg px-2 py-1 text-[11px] font-semibold">S{i + 1} · {r.kg ? `${r.kg}kg` : "—"} × {r.reps || "—"}</span> : null)}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ color: C.text, ...body }} className="text-[15px] font-semibold">Nenhuma série registrada ainda</p>
+                    <p style={{ color: C.mut2, ...body }} className="text-xs mt-1 leading-relaxed">Conclua um treino com este exercício para ver aqui sua melhor carga e a evolução.</p>
+                  </>
+                )}
+              </div>
+
+              <SectionTitle>Equipamento</SectionTitle>
+              <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-3 flex items-center gap-3">
+                <div style={{ background: C.bg, color: C.amber }} className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"><EIcon size={20} /></div>
+                <div className="min-w-0"><p style={{ color: C.mut2, ...body }} className="text-[10px] font-bold uppercase tracking-wide">{E.label}</p><p style={{ color: C.text, ...body }} className="text-sm font-semibold truncate">{lib.machine}</p></div>
+              </div>
+
+              {similar.length > 0 && (
+                <>
+                  <SectionTitle>Exercícios similares</SectionTitle>
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scroll-px-5 snap-x">
+                    {similar.map((s) => (
+                      <button key={s.id} onClick={() => onOpenItem(s)} className="w-[116px] shrink-0 text-left snap-start">
+                        <ExerciseMedia refId={s.id} body={s.body} size={116} radius={16} badge={false} />
+                        <p style={{ color: C.text, ...body }} className="text-xs font-semibold mt-1.5 leading-snug line-clamp-2">{s.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <SectionTitle>Passo a passo</SectionTitle>
+              <ol className="space-y-2.5">
+                {lib.instr.map((s, k) => (
+                  <li key={k} className="flex gap-3">
+                    <span style={{ background: C.card2, color: C.amber, ...display }} className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold">{k + 1}</span>
+                    <span style={{ color: C.text, ...body }} className="text-sm leading-relaxed">{s}</span>
+                  </li>
+                ))}
+              </ol>
+              <div style={{ background: C.mintDim }} className="rounded-2xl p-3 mt-4"><p style={{ color: C.mint, ...body }} className="text-sm leading-relaxed"><b>Postura:</b> {lib.cue}</p></div>
+              <SectionTitle>Músculos trabalhados</SectionTitle>
+              <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-3 flex items-center gap-4">
+                <BodyMap body={lib.body} height={200} />
+                <p style={{ color: C.mut, ...body }} className="text-xs leading-relaxed"><b style={{ color: C.hl }}>Alvo</b> em laranja forte, auxiliares em laranja claro. Sinta o alvo trabalhando durante todo o movimento.</p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {canUseToday && (
+          <div style={{ background: `linear-gradient(0deg, ${C.bg2} 60%, transparent)` }} className="sticky bottom-0 px-5 pb-5 pt-6">
+            <button onClick={() => onUseToday(lib)} style={{ background: C.amber, color: C.bg, ...display }} className="w-full rounded-full py-3.5 font-bold flex items-center justify-center gap-2"><Replace size={18} /> Usar no treino de hoje</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Faixa "Músculos trabalhados" do treino do dia. */
+function DayMuscles({ day }) {
+  const slugs = [];
+  day.exercises.forEach((e) => musclesOf(e.body).main.forEach((s) => { if (!slugs.includes(s)) slugs.push(s); }));
+  if (!slugs.length) return null;
+  return (
+    <div className="mb-4">
+      <p style={{ color: C.mut, ...body }} className="text-[11px] font-bold uppercase tracking-widest mb-2">Músculos trabalhados</p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {slugs.map((s) => (
+          <div key={s} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-1.5 pr-3 flex items-center gap-2 shrink-0">
+            <MuscleThumb slug={s} size={44} />
+            <span style={{ color: C.text, ...body }} className="text-xs font-semibold">{MUSCLE_NAMES[s]}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -474,7 +621,8 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
 }
 
 /* ============================== TELA: PLANO ============================== */
-function PlanScreen({ plan, regenAI, aiBusy }) {
+function PlanScreen({ plan, regenAI, aiBusy, tracking }) {
+  const [detail, setDetail] = useState(null);
   return (
     <div className="pb-28 lg:pb-10">
       <div className="flex items-center justify-between mb-3">
@@ -498,18 +646,20 @@ function PlanScreen({ plan, regenAI, aiBusy }) {
               </div>
               <div className="space-y-2">
                 {d.exercises.map((e, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
+                  <button key={i} onClick={() => setDetail(e)} className="w-full flex items-center gap-2.5 text-left rounded-xl -mx-1 px-1 py-0.5 hover:bg-white/5">
                     <ExerciseMedia refId={e.refId} body={e.body} size={40} radius={10} badge={false} />
                     <span style={{ color: C.text, ...body }} className="text-sm flex-1 min-w-0 truncate">{e.name}</span>
                     <span style={{ color: C.mut, ...body }} className="text-xs shrink-0">{e.sets}×{e.reps}</span>
-                  </div>
+                    <ChevronRight size={16} style={{ color: C.mut2 }} className="shrink-0" />
+                  </button>
                 ))}
               </div>
             </div>
           );
         })}
       </div>
-      <p style={{ color: C.mut2, ...body }} className="text-xs mt-4 leading-relaxed">Ao concluir um treino, o app avança automaticamente para o próximo dia e reinicia o ciclo no fim.</p>
+      <p style={{ color: C.mut2, ...body }} className="text-xs mt-4 leading-relaxed">Ao concluir um treino, o app avança automaticamente para o próximo dia e reinicia o ciclo no fim. Toque num exercício para ver os detalhes.</p>
+      {detail && <ExerciseDetail item={detail} prevLoads={tracking?.lastLoads} onClose={() => setDetail(null)} onOpenItem={(li) => setDetail(li)} />}
     </div>
   );
 }
@@ -825,7 +975,7 @@ export default function Dashboard({ userName }) {
       <div className="mx-auto px-4 py-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
         <p style={{ color: C.mut, ...body }} className="hidden lg:block text-sm mb-1">Olá, {firstName} 👋</p>
         {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
-        {tab === "plan" && <PlanScreen plan={plan} regenAI={regenAI} aiBusy={aiBusy} />}
+        {tab === "plan" && <PlanScreen plan={plan} regenAI={regenAI} aiBusy={aiBusy} tracking={tracking} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
         {tab === "coach" && <CoachScreen profile={profile} chat={chat} setChat={setChat} />}
         {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
@@ -873,6 +1023,8 @@ function Styles() {
       * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
       body { margin: 0; }
       .an-spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+      .an-slide { animation: slidein .25s ease; } @keyframes slidein { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+      @media (min-width: 1024px) { .an-slide { animation-name: slidex; } @keyframes slidex { from { transform: translateX(40px); opacity: .4; } to { transform: none; opacity: 1; } } }
       .an-pulse { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
       input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .an-toast { animation: pop .25s ease; } @keyframes pop { from { transform: translate(-50%,8px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
