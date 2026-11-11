@@ -73,6 +73,39 @@ function ExerciseMedia({ refId, body: b, size = 66, radius = 12, badge = true, t
   );
 }
 
+/* ============================== "COMO FAZER": MOVIMENTO + MÚSCULOS ==============================
+   Com GIF disponível: animação real grande + boneco anatômico ao lado.
+   Sem GIF (modo "svg" ou falha): figura esquemática + boneco anatômico. */
+function HowToMedia({ ex }) {
+  const urls = gifUrls(ex.refId);
+  const [i, setI] = useState(0);
+  const hasGif = urls.length > 0 && i < urls.length;
+  const legend = <p style={{ color: C.mut2, ...body }} className="text-[11px] leading-snug"><b style={{ color: C.hl }}>Alvo</b> em laranja forte · auxiliares em laranja claro.</p>;
+  if (hasGif) {
+    return (
+      <div className="mb-3">
+        <div className="flex gap-2 items-stretch">
+          <div style={{ background: "#fff", border: `1px solid ${C.line}` }} className="rounded-xl overflow-hidden flex items-center justify-center aspect-square flex-1 min-w-0 max-w-[320px]">
+            <img key={i} src={urls[i]} alt={`Execução: ${ex.name}`} loading="lazy" decoding="async" onError={() => setI(i + 1)} className="w-full h-full object-contain" />
+          </div>
+          <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-xl px-2 flex flex-col items-center justify-center gap-1">
+            <BodyMap body={ex.body} height={170} />
+            <span style={{ color: C.hl, ...body }} className="text-[10px] font-bold uppercase tracking-wide">{ex.muscle}</span>
+          </div>
+        </div>
+        <div className="mt-1.5">{legend}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-3 mb-3 items-center">
+      <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-lg shrink-0"><MoveFigure anim={ex.anim} size={84} /></div>
+      <div style={{ background: C.bg, border: `1px solid ${C.line}`, height: 120 }} className="rounded-lg shrink-0 px-2 flex items-center"><BodyMap body={ex.body} height={112} /></div>
+      {legend}
+    </div>
+  );
+}
+
 /* ============================== ANIMAÇÃO DO MOVIMENTO ============================== */
 function MoveFigure({ anim, size = 100 }) {
   const stroke = C.amber, skin = C.amberSoft, bar = C.text;
@@ -240,11 +273,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
 
       {showInfo && (
         <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="rounded-xl p-3 mt-2">
-          <div className="flex gap-3 mb-3 items-center">
-            <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="rounded-lg shrink-0"><MoveFigure anim={ex.anim} size={84} /></div>
-            <div style={{ background: C.bg, border: `1px solid ${C.line}`, height: 120 }} className="rounded-lg shrink-0 px-2 flex items-center"><BodyMap body={ex.body} height={112} /></div>
-            <p style={{ color: C.mut2, ...body }} className="text-[11px] leading-snug">Movimento (esquemático) e músculos trabalhados: <b style={{ color: C.hl }}>alvo</b> em laranja forte, auxiliares em laranja claro.</p>
-          </div>
+          <HowToMedia ex={ex} />
           <ol className="list-decimal pl-4 space-y-1">{ex.instr.map((s, k) => <li key={k} style={{ color: C.text, ...body }} className="text-xs leading-relaxed">{s}</li>)}</ol>
           <div style={{ background: C.mintDim }} className="rounded-lg p-2 mt-2"><p style={{ color: C.mint, ...body }} className="text-xs leading-relaxed"><b>Postura:</b> {ex.cue}</p></div>
         </div>
