@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan } from "@/lib/exercises";
-import { gifFor } from "@/lib/media";
+import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
 
 /* ============================== TEMA ============================== */
@@ -119,12 +119,12 @@ function MuscleMap({ body: b, size = 96 }) {
    nosso mapa muscular SVG. Qualquer falha de carregamento também volta
    ao SVG — o app nunca fica sem imagem. */
 function ExerciseMedia({ refId, body: b, size = 66, radius = 12 }) {
-  const url = gifFor(refId);
-  const [failed, setFailed] = useState(false);
-  if (url && !failed) {
+  const urls = gifUrls(refId);
+  const [i, setI] = useState(0);
+  if (urls.length && i < urls.length) {
     return (
-      <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async"
-        onError={() => setFailed(true)}
+      <img key={i} src={urls[i]} alt="" width={size} height={size} loading="lazy" decoding="async"
+        onError={() => setI(i + 1)}
         style={{ width: size, height: size, objectFit: "contain", borderRadius: radius, background: "#fff" }} />
     );
   }
