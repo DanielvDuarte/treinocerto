@@ -5,6 +5,10 @@
 :root { color-scheme: dark; }
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: #13161B; }
+/* Celular: nada pode arrastar a página para os lados (efeito "flutuante" no iOS). */
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavior-x: none; }
+body { -webkit-text-size-adjust: 100%; }
+@supports (overflow: clip) { html, body { overflow-x: clip; } }
 
 .an-spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
 .an-toast { animation: pop .25s ease; } @keyframes pop { from { transform: translate(-50%,8px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }

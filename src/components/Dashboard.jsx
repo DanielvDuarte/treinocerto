@@ -305,7 +305,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
   };
 
   return (
-    <div className="pb-28 lg:pb-10">
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
       <InstallBanner C={C} body={body} />
 
       <div style={{ background: `radial-gradient(120% 140% at 100% 0%, rgba(255,138,61,.18) 0%, ${C.card} 45%, ${C.bg2} 100%)`, border: `1px solid ${C.line}` }} className="rounded-3xl p-5 mb-4">
@@ -338,7 +338,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
         ))}
       </div>
 
-      <div className="sticky bottom-[76px] lg:bottom-4 mt-4 z-30">
+      <div className="sticky bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-4 mt-4 z-30">
         <button onClick={onComplete} disabled={!allDone}
           style={{ background: allDone ? `linear-gradient(90deg, ${C.mint}, #7CF5B8)` : C.card, color: allDone ? C.bg : C.mut2, border: `1px solid ${allDone ? C.mint : C.line}`, boxShadow: allDone ? "0 10px 30px rgba(70,224,160,.25)" : "none", ...display }}
           className="w-full rounded-full py-4 font-bold text-base uppercase tracking-wider flex items-center justify-center gap-2 lg:max-w-md lg:mx-auto">
@@ -504,7 +504,7 @@ function ExerciseDetail({ item, startTab = "geral", prevLoads, canUseToday, onUs
               {similar.length > 0 && (
                 <>
                   <SectionTitle>Exercícios similares</SectionTitle>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scroll-px-5 snap-x">
+                  <div className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 -mx-5 px-5 scroll-px-5 snap-x">
                     {similar.map((s) => (
                       <button key={s.id} onClick={() => onOpenItem(s)} className="w-[116px] shrink-0 text-left snap-start">
                         <ExerciseMedia refId={s.id} body={s.body} size={116} radius={16} badge={false} />
@@ -554,7 +554,7 @@ function DayMuscles({ day }) {
   return (
     <div className="mb-4">
       <p style={{ color: C.mut, ...body }} className="text-[11px] font-bold uppercase tracking-widest mb-2">Músculos trabalhados</p>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
         {slugs.map((s) => (
           <div key={s} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-1.5 pr-3 flex items-center gap-2 shrink-0">
             <MuscleThumb slug={s} size={44} />
@@ -624,7 +624,7 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
 function PlanScreen({ plan, regenAI, aiBusy, tracking }) {
   const [detail, setDetail] = useState(null);
   return (
-    <div className="pb-28 lg:pb-10">
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
@@ -674,7 +674,7 @@ function ProgressScreen({ profile, tracking, addWeight }) {
   const goalW = profile.goalWeight;
   const submit = () => { const n = parseFloat(String(val).replace(",", ".")); if (!n || n < 25 || n > 350) return; addWeight(n); setVal(""); };
   return (
-    <div className="pb-28 lg:pb-10">
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
       <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Sua evolução</h2>
       <div className="grid grid-cols-3 gap-2 mb-3 lg:max-w-2xl">
         <Stat label="Peso atual" value={last != null ? `${last}kg` : "—"} color={C.text} />
@@ -735,7 +735,7 @@ function CoachScreen({ profile, chat, setChat }) {
   };
   const presets = ["Como melhorar minha técnica no agachamento?", "O que comer antes de treinar?", "Estou com dor no ombro, o que faço?"];
   return (
-    <div className="pb-28 lg:pb-24 flex flex-col lg:max-w-3xl" style={{ minHeight: "70vh" }}>
+    <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-24 flex flex-col lg:max-w-3xl" style={{ minHeight: "70vh" }}>
       <div className="flex items-center gap-2 mb-3">
         <div style={{ background: C.indigo }} className="rounded-xl w-9 h-9 flex items-center justify-center"><Sparkles size={18} color="#fff" /></div>
         <div><h2 style={{ color: C.text, ...display }} className="text-lg font-bold leading-none">Coach IA</h2><p style={{ color: C.mut, ...body }} className="text-xs">Dúvidas de treino, técnica e alimentação</p></div>
@@ -755,7 +755,7 @@ function CoachScreen({ profile, chat, setChat }) {
         {busy && <div className="flex justify-start"><div style={{ background: C.card, border: `1px solid ${C.line}`, color: C.mut }} className="rounded-2xl px-4 py-2.5 text-sm flex items-center gap-2"><Loader2 size={14} className="an-spin" /> digitando...</div></div>}
         <div ref={endRef} />
       </div>
-      <div style={{ background: C.bg }} className="fixed bottom-[68px] lg:bottom-0 left-0 lg:left-64 right-0 px-4 lg:px-8 pb-2 lg:pb-5 pt-2 z-30">
+      <div style={{ background: C.bg }} className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 px-4 lg:px-8 pb-2 lg:pb-5 pt-2 z-30">
         <div className="mx-auto lg:mx-0 max-w-[480px] md:max-w-[720px] lg:max-w-3xl flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Escreva sua dúvida..." style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 rounded-xl px-4 py-3 outline-none text-sm" />
           <button onClick={() => send()} disabled={busy} style={{ background: C.indigo }} className="rounded-xl w-12 flex items-center justify-center"><Send size={18} color="#fff" /></button>
@@ -789,7 +789,7 @@ function Setup({ onDone, initial }) {
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
   const valid = p.name && p.height && p.weight;
   return (
-    <div style={{ background: C.bg, minHeight: "100vh" }} className="px-4 py-6">
+    <div style={{ background: C.bg, minHeight: "100vh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }} className="px-4">
       <div className="mx-auto max-w-[480px] md:max-w-[560px]">
         <div className="flex items-center gap-2 mb-1"><div style={{ background: C.amber }} className="rounded-xl w-10 h-10 flex items-center justify-center"><Dumbbell size={22} color={C.bg} /></div><h1 style={{ color: C.text, ...display }} className="text-2xl font-bold">TreinoCerto</h1></div>
         <p style={{ color: C.mut, ...body }} className="text-sm mb-5">Vamos montar seu plano. Leva 1 minuto.</p>
@@ -935,7 +935,7 @@ export default function Dashboard({ userName }) {
 
   return (
     <BodySexContext.Provider value={profile.sex}>
-    <div style={{ background: C.bg, minHeight: "100vh", ...body }}>
+    <div style={{ background: C.bg, minHeight: "100vh", ...body }} className="overflow-x-clip">
       <Styles />
 
       {/* Menu lateral (computador) */}
@@ -966,7 +966,7 @@ export default function Dashboard({ userName }) {
 
       <div className="lg:pl-64">
       {/* Topo (celular/tablet) */}
-      <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}` }} className="lg:hidden sticky top-0 z-40 px-4 py-3">
+      <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}`, paddingTop: "calc(env(safe-area-inset-top) + 12px)" }} className="lg:hidden sticky top-0 z-40 px-4 pb-3">
         <div className="mx-auto max-w-[480px] md:max-w-[720px] flex items-center justify-between">
           <div className="flex items-center gap-2"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold">Olá, {firstName}</span></div>
           <button onClick={() => setTab("settings")} style={{ color: tab === "settings" ? C.amber : C.mut }} aria-label="Perfil"><User size={20} /></button>
@@ -987,7 +987,7 @@ export default function Dashboard({ userName }) {
         </div>
       </div>
       {weighIn && <WeighInModal nextDay={weighIn.next} onSave={closeWeighIn} onSkip={() => closeWeighIn(null)} />}
-      {toast && <div style={{ background: C.mintDim, border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440 }} className="fixed bottom-20 lg:bottom-8 left-1/2 lg:left-[calc(50%+8rem)] -translate-x-1/2 z-50 rounded-2xl px-4 py-3 text-sm font-semibold text-center mx-4 an-toast">{toast}</div>}
+      {toast && <div style={{ background: C.mintDim, border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440 }} className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-8 left-1/2 lg:left-[calc(50%+8rem)] -translate-x-1/2 z-50 rounded-2xl px-4 py-3 text-sm font-semibold text-center mx-4 an-toast">{toast}</div>}
     </div>
     </BodySexContext.Provider>
   );
@@ -997,7 +997,7 @@ function SettingsScreen({ profile, onReset, onSignOut, setProfile, setPlan, show
   const [editing, setEditing] = useState(false);
   if (editing) return <Setup initial={profile} onDone={(pp) => { const np = { ...pp, age: +pp.age || 0, height: +pp.height || 0, weight: +pp.weight || 0, goalWeight: +pp.goalWeight || 0 }; setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />;
   return (
-    <div className="pb-28 lg:pb-10 lg:max-w-xl">
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10 lg:max-w-xl">
       <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Perfil</h2>
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 space-y-2">
         <Row k="Nome" v={profile.name} />
