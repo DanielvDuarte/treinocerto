@@ -141,7 +141,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
   return (
     <div className="mt-3">
-      <div style={{ color: C.mut2, ...body }} className="grid grid-cols-[40px_1fr_1fr_44px] gap-2 px-2 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+      <div style={{ color: C.mut2, ...body }} className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 px-2 text-[10px] font-bold uppercase tracking-wider mb-1.5">
         <span>Série</span><span className="text-center">Reps</span><span className="text-center">Peso (kg)</span><span />
       </div>
       <div className="space-y-1.5">
@@ -151,7 +151,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
           const last = prev?.[i];
           return (
             <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
-              className="grid grid-cols-[40px_1fr_1fr_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
+              className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
               <span style={{ color: isDone ? C.mint : C.amber, ...display }} className="text-sm font-bold text-center">{i + 1}</span>
               <input value={row.reps ?? ""} onChange={(e) => onLog(i, "reps", e.target.value)} inputMode="numeric"
                 placeholder={last?.reps ? String(last.reps) : repsHint(ex.reps)} aria-label={`Repetições da série ${i + 1}`}
@@ -326,7 +326,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
 
       <DayMuscles day={day} />
 
-      <div className="grid gap-3 lg:grid-cols-2 items-start">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 items-start">
         {day.exercises.map((ex, i) => (
           <ExerciseCard key={`${dayIdx}-${i}`} ex={ex} idx={i} done={session.sets[i] || []}
             log={session.log?.[i]} prev={tracking.lastLoads?.[ex.refId]}
@@ -620,33 +620,67 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
   );
 }
 
-/* ============================== TELA: PLANO ============================== */
-function PlanScreen({ plan, regenAI, aiBusy, tracking }) {
+/* ============================== TELA: PLANO ==============================
+   Mostra a divisão em ciclo (A → B → C → A…), o próximo dia e permite
+   escolher qual treino fazer hoje. Toque num exercício abre o detalhe. */
+function dayStats(d) {
+  const sets = d.exercises.reduce((a, e) => a + (e.sets || 0), 0);
+  const secs = d.exercises.reduce((a, e) => a + (e.sets || 0) * (40 + (e.rest || 60)), 0);
+  const muscles = [];
+  d.exercises.forEach((e) => musclesOf(e.body).main.forEach((s) => { if (!muscles.includes(s)) muscles.push(s); }));
+  return { sets, minutes: Math.max(10, Math.round(secs / 60 / 5) * 5), muscles };
+}
+
+function PlanScreen({ plan, setPlan, session, setSession, regenAI, aiBusy, tracking, goToday }) {
   const [detail, setDetail] = useState(null);
+  const nextIdx = plan.cycleIndex % plan.days.length;
+  const hasProgress = Object.values(session?.sets || {}).some((a) => a?.length);
+  const order = plan.days.map((d) => d.id).join(" → ");
+
+  const doToday = (di) => {
+    if (di !== nextIdx) {
+      if (hasProgress && !window.confirm("Você já marcou séries no treino de hoje. Trocar de treino apaga esse progresso. Continuar?")) return;
+      setPlan((p) => ({ ...p, cycleIndex: di }));
+      setSession({ sets: {} });
+    }
+    goToday();
+  };
+
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
-          <p style={{ color: C.mut, ...body }} className="text-xs">Divisão {plan.splitName} · {plan.source === "ai" ? "personalizado por IA" : "modelo base"}</p>
-        </div>
-        <button onClick={regenAI} disabled={aiBusy} style={{ background: C.indigo, color: "#fff", ...body }} className="rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1">{aiBusy ? <Loader2 size={14} className="an-spin" /> : <Sparkles size={14} />} Personalizar com IA</button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 items-start">
+      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
+      <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
+        Divisão <b style={{ color: C.text }}>{plan.splitName}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um treino, o próximo dia vira o de <b style={{ color: C.text }}>Hoje</b>. Quer treinar outro? Escolha abaixo.
+      </p>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 items-start mt-4">
         {plan.days.map((d, di) => {
-          const isNext = di === plan.cycleIndex % plan.days.length;
+          const isNext = di === nextIdx;
+          const st = dayStats(d);
           return (
-            <div key={d.id} style={{ background: C.card, border: `1px solid ${isNext ? C.amber : C.line}` }} className="rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span style={{ background: isNext ? C.amber : C.bg2, color: isNext ? C.bg : C.mut, ...display }} className="rounded-lg w-7 h-7 flex items-center justify-center font-bold text-sm">{d.id}</span>
-                  <h3 style={{ color: C.text, ...display }} className="font-bold">{d.name}</h3>
+            <div key={d.id} style={{ background: C.card, border: `1px solid ${isNext ? C.amber : C.line}` }} className="rounded-3xl p-4 min-w-0">
+              <div className="flex items-start gap-3">
+                <span style={{ background: isNext ? C.amber : C.bg2, color: isNext ? C.bg : C.mut, ...display }} className="rounded-xl w-9 h-9 shrink-0 flex items-center justify-center font-bold">{d.id}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight truncate">{d.name}</h3>
+                    {isNext && <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, ...body }} className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase">Hoje</span>}
+                  </div>
+                  <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5">{d.exercises.length} exercícios · {st.sets} séries · ~{st.minutes} min</p>
                 </div>
-                {isNext && <span style={{ color: C.amber, ...body }} className="text-xs font-bold">PRÓXIMO</span>}
               </div>
-              <div className="space-y-2">
+
+              <div className="flex gap-1.5 flex-wrap mt-3">
+                {st.muscles.slice(0, 5).map((s) => (
+                  <span key={s} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}`, ...body }} className="rounded-full pl-0.5 pr-2 py-0.5 text-[11px] font-semibold flex items-center gap-1">
+                    <span className="rounded-full overflow-hidden"><MuscleThumb slug={s} size={20} /></span>{MUSCLE_NAMES[s]}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-3 space-y-1">
                 {d.exercises.map((e, i) => (
-                  <button key={i} onClick={() => setDetail(e)} className="w-full flex items-center gap-2.5 text-left rounded-xl -mx-1 px-1 py-0.5 hover:bg-white/5">
+                  <button key={i} onClick={() => setDetail(e)} className="w-full min-w-0 flex items-center gap-2.5 text-left rounded-xl p-1 active:bg-white/5 hover:bg-white/5">
                     <ExerciseMedia refId={e.refId} body={e.body} size={40} radius={10} badge={false} />
                     <span style={{ color: C.text, ...body }} className="text-sm flex-1 min-w-0 truncate">{e.name}</span>
                     <span style={{ color: C.mut, ...body }} className="text-xs shrink-0">{e.sets}×{e.reps}</span>
@@ -654,11 +688,26 @@ function PlanScreen({ plan, regenAI, aiBusy, tracking }) {
                   </button>
                 ))}
               </div>
+
+              <button onClick={() => doToday(di)}
+                style={{ background: isNext ? C.amber : C.bg2, color: isNext ? C.bg : C.text, border: `1px solid ${isNext ? C.amber : C.line}`, ...display }}
+                className="w-full rounded-full py-3 mt-3 font-bold text-sm flex items-center justify-center gap-2">
+                <Play size={16} /> {isNext ? "Ir para o treino de hoje" : "Fazer este treino hoje"}
+              </button>
             </div>
           );
         })}
       </div>
-      <p style={{ color: C.mut2, ...body }} className="text-xs mt-4 leading-relaxed">Ao concluir um treino, o app avança automaticamente para o próximo dia e reinicia o ciclo no fim. Toque num exercício para ver os detalhes.</p>
+
+      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-3xl p-4 mt-4 flex items-center gap-3">
+        <div style={{ background: C.indigo }} className="rounded-xl w-10 h-10 shrink-0 flex items-center justify-center"><Sparkles size={18} color="#fff" /></div>
+        <div className="flex-1 min-w-0">
+          <p style={{ color: C.text, ...body }} className="text-sm font-semibold">Montar um plano novo com IA</p>
+          <p style={{ color: C.mut2, ...body }} className="text-xs leading-snug">Refaz a divisão conforme seu objetivo, nível e limitações. {plan.source === "ai" ? "O plano atual já foi feito pela IA." : "Hoje você usa o modelo base."}</p>
+        </div>
+        <button onClick={regenAI} disabled={aiBusy} style={{ background: C.indigo, color: "#fff", ...body }} className="rounded-xl px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1">{aiBusy ? <Loader2 size={14} className="an-spin" /> : null}{aiBusy ? "Gerando…" : "Gerar"}</button>
+      </div>
+
       {detail && <ExerciseDetail item={detail} prevLoads={tracking?.lastLoads} onClose={() => setDetail(null)} onOpenItem={(li) => setDetail(li)} />}
     </div>
   );
@@ -681,7 +730,7 @@ function ProgressScreen({ profile, tracking, addWeight }) {
         <Stat label="Variação" value={`${diff > 0 ? "+" : ""}${diff}kg`} color={diff <= 0 ? C.mint : C.amber} />
         <Stat label="Treinos feitos" value={tracking.history.length} color={C.amber} />
       </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_2fr] items-start">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(280px,1fr)_2fr] items-start">
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
         <p style={{ color: C.text, ...body }} className="text-sm font-semibold mb-2 flex items-center gap-1"><Scale size={16} style={{ color: C.amber }} /> Registrar peso de hoje</p>
         <div className="flex gap-2">
@@ -768,7 +817,7 @@ function CoachScreen({ profile, chat, setChat }) {
 /* ============================== ONBOARDING ============================== */
 function SetupSeg({ field, options, p, set }) {
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map((o) => { const on = p[field] === o.v; return <button key={o.v} onClick={() => set(field, o.v)} style={{ background: on ? C.amber : C.card, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.amber : C.line}`, ...body }} className="rounded-xl py-2.5 text-xs font-semibold">{o.l}</button>; })}
     </div>
   );
@@ -975,7 +1024,7 @@ export default function Dashboard({ userName }) {
       <div className="mx-auto px-4 py-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
         <p style={{ color: C.mut, ...body }} className="hidden lg:block text-sm mb-1">Olá, {firstName} 👋</p>
         {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
-        {tab === "plan" && <PlanScreen plan={plan} regenAI={regenAI} aiBusy={aiBusy} tracking={tracking} />}
+        {tab === "plan" && <PlanScreen plan={plan} setPlan={setPlan} session={session} setSession={setSession} regenAI={regenAI} aiBusy={aiBusy} tracking={tracking} goToday={() => { setTab("today"); window.scrollTo({ top: 0 }); }} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
         {tab === "coach" && <CoachScreen profile={profile} chat={chat} setChat={setChat} />}
         {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
