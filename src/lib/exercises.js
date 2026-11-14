@@ -119,3 +119,73 @@ export function buildPlan(profile) {
   return { splitName: days.map((d) => d.id).join(""), days, cycleIndex: 0, source: "base" };
 }
 
+/* ================= MONTAGEM PERSONALIZADA (POR GRUPOS) ================= */
+// Grupos que o usuário pode escolher no construtor da aba Plano.
+export const GROUP_ORDER = ["peito", "costas", "ombro", "biceps", "triceps", "pernas", "gluteo", "core", "cardio"];
+export const GROUP_LABELS = {
+  peito: "Peito", costas: "Costas", ombro: "Ombro", biceps: "Bíceps", triceps: "Tríceps",
+  pernas: "Pernas", gluteo: "Glúteo", core: "Abdômen", cardio: "Cardio",
+};
+export const GROUP_BODY = {
+  peito: { side: "front", key: "peito" }, costas: { side: "back", key: "lats" },
+  ombro: { side: "front", key: "delts" }, biceps: { side: "front", key: "biceps" },
+  triceps: { side: "back", key: "triceps" }, pernas: { side: "front", key: "quads" },
+  gluteo: { side: "back", key: "glutes" }, core: { side: "front", key: "abs" },
+  cardio: { side: "front", key: "full" },
+};
+
+// Letra do dia por índice: A, B, C...
+export const dayLetter = (i) => String.fromCharCode(65 + i);
+
+// Quantos exercícios por grupo quando o usuário não define: menos grupos = treino mais completo em cada.
+function perGroupDefault(nGroups) {
+  if (nGroups <= 1) return 4;
+  if (nGroups === 2) return 3;
+  return 2;
+}
+
+// Monta a lista de exercícios de UM dia a partir dos grupos escolhidos (sem IA).
+export function exercisesForGroups(groups, profile, perGroup) {
+  const { goal, equip: pref } = profile || {};
+  const ordered = GROUP_ORDER.filter((g) => (groups || []).includes(g));
+  const n = perGroup || perGroupDefault(ordered.length);
+  const used = new Set();
+  let ex = [];
+  ordered.forEach((g) => { ex = ex.concat(pick(g, n, used, pref).map((li) => makeExercise(li, goal))); });
+  return ex;
+}
+
+// Nome automático do dia a partir dos grupos (ex.: "Pernas + Glúteo").
+export function autoDayName(groups) {
+  const ordered = GROUP_ORDER.filter((g) => (groups || []).includes(g));
+  return ordered.map((g) => GROUP_LABELS[g]).join(" + ");
+}
+
+// Constrói um plano a partir da configuração do construtor.
+// daysConfig: [{ id?, name?, groups: ["pernas","gluteo"], perGroup? }]
+export function buildCustomPlan(profile, daysConfig) {
+  const built = (daysConfig || [])
+    .map((d) => ({
+      name: (d.name || "").trim(),
+      groups: (d.groups || []).filter((g) => GROUP_ORDER.includes(g)),
+      exercises: exercisesForGroups(d.groups, profile, d.perGroup),
+    }))
+    .filter((d) => d.exercises.length)
+    .map((d, i) => ({
+      id: dayLetter(i),
+      name: d.name || autoDayName(d.groups) || `Treino ${dayLetter(i)}`,
+      exercises: d.exercises,
+    }));
+  if (!built.length) return null;
+  return { splitName: built.map((d) => d.id).join(""), days: built, cycleIndex: 0, source: "custom" };
+}
+
+// Deriva a configuração do construtor a partir de um plano existente (para "editar").
+export function planToConfig(plan) {
+  if (!plan?.days?.length) return [{ name: "", groups: [] }];
+  return plan.days.map((d) => ({
+    name: d.name || "",
+    groups: [...new Set((d.exercises || []).map((e) => e.group))].filter((g) => GROUP_ORDER.includes(g)),
+  }));
+}
+

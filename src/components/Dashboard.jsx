@@ -1,10 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer } from "lucide-react";
+import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2 } from "lucide-react";
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan } from "@/lib/exercises";
+import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, autoDayName, GROUP_ORDER, GROUP_LABELS, GROUP_BODY, dayLetter } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
 
@@ -631,8 +631,9 @@ function dayStats(d) {
   return { sets, minutes: Math.max(10, Math.round(secs / 60 / 5) * 5), muscles };
 }
 
-function PlanScreen({ plan, setPlan, session, setSession, regenAI, aiBusy, tracking, goToday }) {
+function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConfig, aiBusy, tracking, goToday }) {
   const [detail, setDetail] = useState(null);
+  const [editing, setEditing] = useState(false);
   const nextIdx = plan.cycleIndex % plan.days.length;
   const hasProgress = Object.values(session?.sets || {}).some((a) => a?.length);
   const order = plan.days.map((d) => d.id).join(" → ");
@@ -646,12 +647,31 @@ function PlanScreen({ plan, setPlan, session, setSession, regenAI, aiBusy, track
     goToday();
   };
 
+  if (editing) {
+    return (
+      <PlanBuilder
+        profile={profile}
+        initialConfig={planToConfig(plan)}
+        aiBusy={aiBusy}
+        onCancel={() => setEditing(false)}
+        onBuild={async (cfg, useAI) => { const ok = await buildFromConfig(cfg, useAI); if (ok) setEditing(false); }}
+      />
+    );
+  }
+
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
-      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
-      <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
-        Divisão <b style={{ color: C.text }}>{plan.splitName}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um treino, o próximo dia vira o de <b style={{ color: C.text }}>Hoje</b>. Quer treinar outro? Escolha abaixo.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
+          <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
+            Divisão <b style={{ color: C.text }}>{plan.splitName}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um treino, o próximo dia vira o de <b style={{ color: C.text }}>Hoje</b>. Quer treinar outro? Escolha abaixo.
+          </p>
+        </div>
+        <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="shrink-0 rounded-full px-3 py-2.5 text-sm font-bold flex items-center gap-1.5">
+          <Pencil size={15} /> <span className="hidden sm:inline">Montar / Personalizar</span><span className="sm:hidden">Montar</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 items-start mt-4">
         {plan.days.map((d, di) => {
@@ -699,16 +719,101 @@ function PlanScreen({ plan, setPlan, session, setSession, regenAI, aiBusy, track
         })}
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-3xl p-4 mt-4 flex items-center gap-3">
-        <div style={{ background: C.indigo }} className="rounded-xl w-10 h-10 shrink-0 flex items-center justify-center"><Sparkles size={18} color="#fff" /></div>
+      <button onClick={() => setEditing(true)} style={{ background: C.card, border: `1px solid ${C.line}` }} className="w-full text-left rounded-3xl p-4 mt-4 flex items-center gap-3 active:bg-white/5 hover:bg-white/5">
+        <div style={{ background: C.indigo }} className="rounded-xl w-10 h-10 shrink-0 flex items-center justify-center"><Wand2 size={18} color="#fff" /></div>
         <div className="flex-1 min-w-0">
-          <p style={{ color: C.text, ...body }} className="text-sm font-semibold">Montar um plano novo com IA</p>
-          <p style={{ color: C.mut2, ...body }} className="text-xs leading-snug">Refaz a divisão conforme seu objetivo, nível e limitações. {plan.source === "ai" ? "O plano atual já foi feito pela IA." : "Hoje você usa o modelo base."}</p>
+          <p style={{ color: C.text, ...body }} className="text-sm font-semibold">Montar / personalizar o plano</p>
+          <p style={{ color: C.mut2, ...body }} className="text-xs leading-snug">Escolha o que quer treinar em cada dia (só perna, braço, abdômen…) e gere com ou sem IA. {plan.source === "ai" ? "O plano atual foi feito pela IA." : plan.source === "custom" ? "O plano atual foi montado por você." : "Hoje você usa o modelo base."}</p>
         </div>
-        <button onClick={regenAI} disabled={aiBusy} style={{ background: C.indigo, color: "#fff", ...body }} className="rounded-xl px-3 py-2 text-xs font-semibold shrink-0 flex items-center gap-1">{aiBusy ? <Loader2 size={14} className="an-spin" /> : null}{aiBusy ? "Gerando…" : "Gerar"}</button>
-      </div>
+        <ChevronRight size={18} style={{ color: C.mut2 }} className="shrink-0" />
+      </button>
 
       {detail && <ExerciseDetail item={detail} prevLoads={tracking?.lastLoads} onClose={() => setDetail(null)} onOpenItem={(li) => setDetail(li)} />}
+    </div>
+  );
+}
+
+/* ====================== CONSTRUTOR DE PLANO ====================== */
+function PlanBuilder({ profile, initialConfig, aiBusy, onCancel, onBuild }) {
+  const [days, setDays] = useState(() => {
+    const base = (initialConfig && initialConfig.length ? initialConfig : [{ name: "", groups: [] }]);
+    return base.map((d) => ({ name: d.name || "", groups: [...(d.groups || [])] }));
+  });
+
+  const toggleGroup = (di, g) => setDays((ds) => ds.map((d, i) => i !== di ? d : ({ ...d, groups: d.groups.includes(g) ? d.groups.filter((x) => x !== g) : [...d.groups, g] })));
+  const setName = (di, v) => setDays((ds) => ds.map((d, i) => i !== di ? d : ({ ...d, name: v })));
+  const addDay = () => setDays((ds) => [...ds, { name: "", groups: [] }]);
+  const removeDay = (di) => setDays((ds) => ds.length <= 1 ? ds : ds.filter((_, i) => i !== di));
+
+  const totalGroups = days.reduce((n, d) => n + d.groups.length, 0);
+  const valid = days.some((d) => d.groups.length > 0);
+
+  return (
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
+      <div className="flex items-center justify-between gap-3">
+        <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Montar seu plano</h2>
+        <button onClick={onCancel} style={{ color: C.mut, ...body }} className="shrink-0 rounded-full px-3 py-2 text-sm font-semibold flex items-center gap-1"><X size={16} /> Cancelar</button>
+      </div>
+      <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
+        Monte cada dia escolhendo os grupos que quer treinar — pode ser um só (ex.: <b style={{ color: C.text }}>só perna</b>) ou vários juntos. Adicione quantos dias quiser; eles entram em ciclo (A → B → C…).
+      </p>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 items-start mt-4">
+        {days.map((d, di) => (
+          <div key={di} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-3xl p-4 min-w-0">
+            <div className="flex items-center gap-3">
+              <span style={{ background: C.bg2, color: C.mut, ...display }} className="rounded-xl w-9 h-9 shrink-0 flex items-center justify-center font-bold">{dayLetter(di)}</span>
+              <input
+                value={d.name}
+                onChange={(e) => setName(di, e.target.value)}
+                placeholder={autoDayName(d.groups) || "Nome do dia (opcional)"}
+                style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }}
+                className="flex-1 min-w-0 rounded-xl px-3 py-2 text-sm outline-none" />
+              {days.length > 1 && (
+                <button onClick={() => removeDay(di)} aria-label="Remover dia" style={{ color: C.mut2 }} className="shrink-0 p-2 rounded-lg active:bg-white/5 hover:bg-white/5"><Trash2 size={16} /></button>
+              )}
+            </div>
+
+            <div className="flex gap-1.5 flex-wrap mt-3">
+              {GROUP_ORDER.map((g) => {
+                const on = d.groups.includes(g);
+                return (
+                  <button key={g} onClick={() => toggleGroup(di, g)}
+                    style={{ background: on ? C.amber : C.bg2, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.amber : C.line}`, ...body }}
+                    className="rounded-full px-3 py-1.5 text-xs font-semibold">
+                    {GROUP_LABELS[g]}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ color: C.mut2, ...body }} className="text-xs mt-3">
+              {d.groups.length ? `${d.groups.length} grupo${d.groups.length > 1 ? "s" : ""} selecionado${d.groups.length > 1 ? "s" : ""}` : "Toque nos grupos que quer treinar neste dia."}
+            </p>
+          </div>
+        ))}
+
+        <button onClick={addDay} style={{ border: `1px dashed ${C.line}`, color: C.mut, ...display }} className="rounded-3xl p-4 min-w-0 flex items-center justify-center gap-2 font-bold text-sm min-h-[88px] active:bg-white/5 hover:bg-white/5">
+          <Plus size={18} /> Adicionar dia
+        </button>
+      </div>
+
+      <div className="mt-5 flex flex-col sm:flex-row gap-3">
+        <button onClick={() => onBuild(days, false)} disabled={!valid || aiBusy}
+          style={{ background: valid && !aiBusy ? C.amber : C.card, color: valid && !aiBusy ? C.bg : C.mut2, ...display }}
+          className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
+          <Dumbbell size={18} /> Montar sem IA
+        </button>
+        <button onClick={() => onBuild(days, true)} disabled={!valid || aiBusy}
+          style={{ background: valid ? C.indigo : C.card, color: valid ? "#fff" : C.mut2, ...display }}
+          className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
+          {aiBusy ? <Loader2 size={18} className="an-spin" /> : <Sparkles size={18} />} {aiBusy ? "Gerando…" : "Montar com IA"}
+        </button>
+      </div>
+      <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-snug">
+        <b style={{ color: C.mut }}>Sem IA</b>: o app escolhe os exercícios dos grupos marcados, respeitando sua preferência de equipamento e objetivo. <b style={{ color: C.mut }}>Com IA</b>: o coach distribui séries, repetições e descanso considerando também suas limitações.
+        {totalGroups === 0 ? " Escolha ao menos um grupo para liberar os botões." : ""}
+      </p>
     </div>
   );
 }
@@ -953,27 +1058,48 @@ export default function Dashboard({ userName }) {
   };
   const addWeight = (w) => setTracking((t) => { const d = today(); return { ...t, weightLog: [...t.weightLog.filter((x) => x.date !== d), { date: d, weight: w }] }; });
 
-  const regenAI = async () => {
-    if (!profile) return;
+  // Monta o plano a partir da configuração do construtor (dias + grupos escolhidos).
+  // useAI=false: o próprio app escolhe os exercícios. useAI=true: a IA distribui.
+  const buildFromConfig = async (daysConfig, useAI) => {
+    if (!profile) return false;
+    const clean = (daysConfig || [])
+      .map((d) => ({ name: (d.name || "").trim(), groups: (d.groups || []).filter((g) => GROUP_ORDER.includes(g)) }))
+      .filter((d) => d.groups.length);
+    if (!clean.length) { showToast("Escolha ao menos um grupo para montar o plano."); return false; }
+
+    if (!useAI) {
+      const plan = buildCustomPlan(profile, clean);
+      if (!plan) { showToast("Não encontrei exercícios para esses grupos."); return false; }
+      setPlan(plan); setSession({ sets: {} }); showToast("Plano montado!");
+      return true;
+    }
+
     setAiBusy(true);
     try {
       const allowed = LIB.map((e) => `${e.id}(${e.group},${e.equip})`).join("; ");
+      const daysSpec = clean.map((d, i) => `${dayLetter(i)}${d.name ? ` "${d.name}"` : ""}: grupos=${d.groups.join(",")}`).join(" | ");
       const sys = "Você monta treinos. Responda APENAS com JSON válido, sem markdown.";
-      const prompt = `Monte um plano: objetivo=${profile.goal}, nível=${profile.level}, equip preferido=${profile.equip}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, limitações="${profile.limits || "nenhuma"}". Use SOMENTE estes ids (refId): ${allowed}. Respeite limitações. Formato: {"splitName":"ABC","days":[{"id":"A","name":"...","exercises":[{"refId":"...","sets":4,"reps":"10-12","rest":75}]}]}. 2 a 4 dias, 4 a 6 exercícios/dia. Só o JSON.`;
+      const prompt = `Monte um plano RESPEITANDO EXATAMENTE os dias e grupos que o usuário escolheu. Dias: ${daysSpec}. Em cada dia use SOMENTE exercícios dos grupos daquele dia. Perfil: objetivo=${profile.goal}, nível=${profile.level}, equip preferido=${profile.equip}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, limitações="${profile.limits || "nenhuma"}". Use SOMENTE estes ids (refId), com seus grupos entre parênteses: ${allowed}. Respeite limitações. 4 a 6 exercícios por dia. Formato: {"days":[{"id":"A","name":"...","exercises":[{"refId":"...","sets":4,"reps":"10-12","rest":75}]}]}. Só o JSON.`;
       const raw = await callClaude([{ role: "user", content: prompt }], sys);
       const json = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
-      const days = json.days.map((d) => ({
-        id: d.id, name: d.name,
-        exercises: d.exercises.filter((e) => LIB_BY_ID[e.refId]).map((e) => {
+      const days = (json.days || []).map((d, i) => ({
+        id: dayLetter(i),
+        name: (d.name || "").trim() || autoDayName(clean[i]?.groups) || `Treino ${dayLetter(i)}`,
+        exercises: (d.exercises || []).filter((e) => LIB_BY_ID[e.refId]).map((e) => {
           const b = makeExercise(LIB_BY_ID[e.refId], profile.goal);
           return { ...b, sets: e.sets || b.sets, reps: e.reps || b.reps, rest: e.rest || b.rest };
         }),
       })).filter((d) => d.exercises.length);
       if (!days.length) throw new Error("vazio");
-      setPlan({ splitName: json.splitName || days.map((d) => d.id).join(""), days, cycleIndex: 0, source: "ai" });
+      setPlan({ splitName: days.map((d) => d.id).join(""), days, cycleIndex: 0, source: "ai" });
       setSession({ sets: {} }); showToast("Plano personalizado pela IA!");
-    } catch { showToast("Não consegui gerar pela IA agora — mantive seu plano base."); }
-    finally { setAiBusy(false); }
+      return true;
+    } catch {
+      // Fallback: monta sem IA com os mesmos grupos, em vez de deixar o usuário na mão.
+      const plan = buildCustomPlan(profile, clean);
+      if (plan) { setPlan(plan); setSession({ sets: {} }); showToast("IA indisponível — montei com os grupos que você escolheu."); return true; }
+      showToast("Não consegui gerar o plano agora."); return false;
+    } finally { setAiBusy(false); }
   };
 
   if (!ready) return <div style={{ background: C.bg, minHeight: "100vh" }} className="flex items-center justify-center"><Loader2 className="an-spin" color={C.amber} size={32} /></div>;
@@ -1024,7 +1150,7 @@ export default function Dashboard({ userName }) {
       <div className="mx-auto px-4 py-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
         <p style={{ color: C.mut, ...body }} className="hidden lg:block text-sm mb-1">Olá, {firstName} 👋</p>
         {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
-        {tab === "plan" && <PlanScreen plan={plan} setPlan={setPlan} session={session} setSession={setSession} regenAI={regenAI} aiBusy={aiBusy} tracking={tracking} goToday={() => { setTab("today"); window.scrollTo({ top: 0 }); }} />}
+        {tab === "plan" && <PlanScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} buildFromConfig={buildFromConfig} aiBusy={aiBusy} tracking={tracking} goToday={() => { setTab("today"); window.scrollTo({ top: 0 }); }} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
         {tab === "coach" && <CoachScreen profile={profile} chat={chat} setChat={setChat} />}
         {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
