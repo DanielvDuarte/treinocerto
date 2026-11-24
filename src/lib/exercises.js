@@ -54,6 +54,51 @@ export const LIB_BY_ID = Object.fromEntries(LIB.map((e) => [e.id, e]));
 export const byGroup = (g) => LIB.filter((e) => e.group === g);
 export const byPattern = (p) => LIB.filter((e) => e.pattern === p);
 
+/* ====================== CARGA INICIAL SUGERIDA ======================
+   Peso de partida (conservador) por exercício, para um homem iniciante de ~80kg,
+   em ~10-12 repetições. Para halteres/"cada lado", o valor é POR HALTER.
+   Depois é ajustado por sexo, peso, altura e nível em startingLoad().
+   Exercícios de peso do corpo / tempo / cardio não têm carga (null). */
+const START_LOAD = {
+  // Peito
+  supino_maquina: 25, supino_barra: 30, supino_halter: 14, crucifixo_maq: 20, crucifixo_cabo: 10,
+  // Costas
+  remada_maquina: 25, puxada_aberta: 25, puxada_neutra: 25, remada_sentada: 25, remada_curvada: 25, remada_serrote: 14,
+  // Ombro
+  desenvolvimento_maquina: 15, desenvolvimento_halter: 10, elevacao_lateral: 5, elevacao_lateral_cabo: 5,
+  // Bíceps
+  rosca_scott: 15, rosca_direta: 15, rosca_alternada: 8, rosca_cabo: 12,
+  // Tríceps
+  triceps_maquina: 20, triceps_pulley: 15, triceps_testa: 12,
+  // Pernas
+  leg_press: 60, agachamento: 25, hack: 40, cadeira_extensora: 25, afundo: 8, cadeira_flexora: 20, stiff: 25,
+  // Glúteo
+  gluteo_maquina: 15, elevacao_pelvica: 30, cadeira_abdutora: 25,
+  // Core (abdominal na máquina leva carga; prancha/supra são peso do corpo)
+  abdominal_maquina: 15,
+};
+
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+// Arredonda para um incremento prático de academia (anilhas/halteres).
+function roundToStep(kg) {
+  const step = kg < 10 ? 0.5 : kg < 30 ? 1 : 2.5;
+  return Math.max(step, Math.round(kg / step) * step);
+}
+
+// Carga inicial sugerida (kg) para um exercício, segundo o perfil. null = sem carga.
+export function startingLoad(id, profile) {
+  const ref = START_LOAD[id];
+  if (ref == null) return null;
+  const weight = +profile?.weight || 75;
+  const height = +profile?.height || 170;
+  const sexF = profile?.sex === "fem" ? 0.62 : profile?.sex === "outro" ? 0.8 : 1;
+  const levelF = profile?.level === "avancado" ? 1.7 : profile?.level === "intermediario" ? 1.35 : 1;
+  const weightF = clamp(weight / 80, 0.6, 1.6);   // mais pesado → começa um pouco mais alto
+  const heightF = clamp(height / 175, 0.95, 1.06); // leve ajuste por estatura
+  return roundToStep(ref * sexF * levelF * weightF * heightF);
+}
+
 /* ====================== MONTAGEM DO PLANO ====================== */
 export function restFor(goal, group) {
   if (group === "cardio") return 60;

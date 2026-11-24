@@ -4,7 +4,7 @@ import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, Rot
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
+import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, startingLoad, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
 
@@ -196,7 +196,7 @@ function EquipBadge({ equip }) {
 const repsHint = (reps) => String(reps || "").split("-")[0];
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 
-function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progression }) {
+function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progression, startKg }) {
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
   return (
     <div className="mt-3">
@@ -208,7 +208,8 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progressio
           const isDone = done.includes(i);
           const row = log?.[i] || {};
           const last = prev?.[i];
-          const sugg = suggestKg(last, progression);
+          // Sugestão: progressão sobre o último treino; sem histórico, a carga inicial do perfil.
+          const sugg = suggestKg(last, progression) ?? (startKg != null ? startKg : null);
           return (
             <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
               className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
@@ -229,13 +230,13 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progressio
         })}
       </div>
       <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-2 px-1 leading-snug">
-        Digite o peso na 1ª série — as próximas pegam o mesmo valor. Dá pra <b style={{ color: C.mut }}>alterar cada série</b> à vontade.
+        O peso em cinza é uma <b style={{ color: C.mut }}>sugestão inicial</b> pelo seu perfil. Digite o seu na 1ª série — as próximas pegam o mesmo valor; dá pra <b style={{ color: C.mut }}>alterar cada série</b>.
       </p>
     </div>
   );
 }
 
-function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell, onSwap, onSwapTo, onOpen, progression }) {
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell, onSwap, onSwapTo, onOpen, progression, startKg }) {
   const total = ex.sets;
   const completed = done.length;
   const allDone = completed >= total;
@@ -250,7 +251,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
     if (!was) {
       const row = log?.[i] || {};
       if (row.reps == null || row.reps === "") onLog(i, "reps", prev?.[i]?.reps ? String(prev[i].reps) : repsHint(ex.reps));
-      const sugg = suggestKg(prev?.[i], progression);
+      const sugg = suggestKg(prev?.[i], progression) ?? (startKg != null ? startKg : null);
       if ((row.kg == null || row.kg === "") && sugg != null) onLog(i, "kg", String(sugg));
     }
     onToggleSet(i);
@@ -294,7 +295,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
         </div>
       )}
 
-      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} />
+      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} startKg={startKg} />
 
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
 
@@ -419,7 +420,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
             onOpen={(tab) => setDetail({ item: ex, idx: i, tab })}
-            progression={profile.progression} />
+            progression={profile.progression} startKg={startingLoad(ex.refId, profile)} />
         ))}
       </div>
 
