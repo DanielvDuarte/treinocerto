@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2 } from "lucide-react";
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
@@ -196,7 +196,7 @@ function EquipBadge({ equip }) {
 const repsHint = (reps) => String(reps || "").split("-")[0];
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 
-function SetTable({ ex, done, log, prev, onToggle, onLog, progression }) {
+function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progression }) {
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
   return (
     <div className="mt-3">
@@ -213,10 +213,10 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, progression }) {
             <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
               className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
               <span style={{ color: isDone ? C.mint : C.amber, ...display }} className="text-sm font-bold text-center">{i + 1}</span>
-              <input value={row.reps ?? ""} onChange={(e) => onLog(i, "reps", e.target.value)} inputMode="numeric"
+              <input value={row.reps ?? ""} onChange={(e) => onLog(i, "reps", e.target.value)} onBlur={() => onBlurCell?.(i, "reps")} inputMode="numeric"
                 placeholder={last?.reps ? String(last.reps) : repsHint(ex.reps)} aria-label={`Repetições da série ${i + 1}`}
                 style={{ color: C.text, ...body }} className={inputCls} />
-              <input value={row.kg ?? ""} onChange={(e) => onLog(i, "kg", e.target.value)} inputMode="decimal"
+              <input value={row.kg ?? ""} onChange={(e) => onLog(i, "kg", e.target.value)} onBlur={() => onBlurCell?.(i, "kg")} inputMode="decimal"
                 placeholder={sugg != null ? String(sugg) : "—"} aria-label={`Peso da série ${i + 1}`}
                 style={{ color: C.text, ...body }} className={inputCls} />
               <button onClick={() => onToggle(i)} aria-label={isDone ? `Desmarcar série ${i + 1}` : `Concluir série ${i + 1}`}
@@ -228,11 +228,14 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, progression }) {
           );
         })}
       </div>
+      <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-2 px-1 leading-snug">
+        Digite o peso na 1ª série — as próximas pegam o mesmo valor. Dá pra <b style={{ color: C.mut }}>alterar cada série</b> à vontade.
+      </p>
     </div>
   );
 }
 
-function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, onOpen, progression }) {
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell, onSwap, onSwapTo, onOpen, progression }) {
   const total = ex.sets;
   const completed = done.length;
   const allDone = completed >= total;
@@ -291,7 +294,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
         </div>
       )}
 
-      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} progression={progression} />
+      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} />
 
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
 
@@ -350,6 +353,23 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
     log[exIdx] = ex;
     return { ...s, log };
   });
+  // Ao sair do campo, repete o valor digitado nas próximas séries ainda vazias
+  // (mesmo peso/reps para o exercício todo); cada série continua editável.
+  const propagateCell = (exIdx, setIdx, field) => setSession((s) => {
+    const log = { ...(s.log || {}) };
+    const ex = { ...(log[exIdx] || {}) };
+    const val = ex[setIdx]?.[field];
+    if (val == null || val === "") return s;
+    const total = day.exercises[exIdx]?.sets || 0;
+    let changed = false;
+    for (let j = setIdx + 1; j < total; j++) {
+      const cur = ex[j] || {};
+      if (cur[field] == null || cur[field] === "") { ex[j] = { ...cur, [field]: val }; changed = true; }
+    }
+    if (!changed) return s;
+    log[exIdx] = ex;
+    return { ...s, log };
+  });
   const swapTo = (exIdx, libItem, keepProgress) => {
     setPlan((p) => {
       const days = p.days.map((d, di) => {
@@ -395,6 +415,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
             log={session.log?.[i]} prev={tracking.lastLoads?.[ex.refId]}
             onToggleSet={(setIdx) => toggleSet(i, setIdx)}
             onLog={(setIdx, field, v) => logSet(i, setIdx, field, v)}
+            onBlurCell={(setIdx, field) => propagateCell(i, setIdx, field)}
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
             onOpen={(tab) => setDetail({ item: ex, idx: i, tab })}
@@ -982,6 +1003,11 @@ function ProgressScreen({ profile, tracking, addWeight }) {
   const last = tracking.weightLog[tracking.weightLog.length - 1]?.weight;
   const diff = first != null && last != null ? +(last - first).toFixed(1) : 0;
   const goalW = profile.goalWeight;
+  // Carga/volume levantado por treino (peso × reps das séries concluídas).
+  const vol = (tracking.history || []).filter((h) => h.volume > 0).map((h) => ({ label: h.date.slice(5), volume: Math.round(h.volume) }));
+  const lastVol = vol.length ? vol[vol.length - 1].volume : 0;
+  const bestVol = vol.reduce((m, v) => Math.max(m, v.volume), 0);
+  const totalVol = vol.reduce((a, v) => a + v.volume, 0);
   const submit = () => { const n = parseFloat(String(val).replace(",", ".")); if (!n || n < 25 || n > 350) return; addWeight(n); setVal(""); };
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
@@ -1015,6 +1041,28 @@ function ProgressScreen({ profile, tracking, addWeight }) {
           </ResponsiveContainer>
         ) : <p style={{ color: C.mut2, ...body }} className="text-sm py-8 text-center">Registre seu peso para ver o gráfico.</p>}
       </div>
+      </div>
+
+      {/* Carga de treino (quanto peso a pessoa está levantando) */}
+      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 mt-3">
+        <p style={{ color: C.text, ...body }} className="text-sm font-semibold mb-1 flex items-center gap-1.5"><Dumbbell size={16} style={{ color: C.mint }} /> Carga nos treinos</p>
+        <p style={{ color: C.mut2, ...body }} className="text-xs mb-3">Volume = soma de peso × repetições das séries concluídas em cada treino.</p>
+        <div className="grid grid-cols-3 gap-2 mb-3 lg:max-w-2xl">
+          <Stat label="Último treino" value={lastVol ? `${lastVol.toLocaleString("pt-BR")}kg` : "—"} color={C.text} />
+          <Stat label="Recorde" value={bestVol ? `${bestVol.toLocaleString("pt-BR")}kg` : "—"} color={C.mint} />
+          <Stat label="Total acumulado" value={totalVol ? `${totalVol.toLocaleString("pt-BR")}kg` : "—"} color={C.amber} />
+        </div>
+        {vol.length >= 1 ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={vol} margin={{ top: 6, right: 6, left: -8, bottom: 0 }}>
+              <CartesianGrid stroke={C.line} strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: C.mut2, fontSize: 11 }} stroke={C.line} />
+              <YAxis tick={{ fill: C.mut2, fontSize: 11 }} stroke={C.line} width={48} />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,.04)" }} contentStyle={{ background: C.bg2, border: `1px solid ${C.line}`, borderRadius: 12, color: C.text }} labelStyle={{ color: C.mut }} formatter={(v) => [`${Number(v).toLocaleString("pt-BR")} kg`, "Volume"]} />
+              <Bar dataKey="volume" fill={C.mint} radius={[6, 6, 0, 0]} maxBarSize={46} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <p style={{ color: C.mut2, ...body }} className="text-sm py-8 text-center">Finalize um treino registrando os pesos para acompanhar sua carga aqui.</p>}
       </div>
     </div>
   );
