@@ -180,6 +180,29 @@ export function buildCustomPlan(profile, daysConfig) {
   return { splitName: built.map((d) => d.id).join(""), days: built, cycleIndex: 0, source: "custom" };
 }
 
+// Monta um plano a partir do JSON gerado pela IA (construtor ou coach).
+// json: { days: [{ id?, name?, groups?, exercises: [{ refId, sets, reps, rest }] }] }
+export function planFromAIJson(profile, json, source = "ai", extra = {}) {
+  const daysArr = Array.isArray(json?.days) ? json.days : [];
+  const days = daysArr
+    .map((d, i) => ({
+      id: dayLetter(i),
+      name: (d.name || "").trim() || autoDayName(d.groups || []) || `Treino ${dayLetter(i)}`,
+      exercises: (d.exercises || [])
+        .filter((e) => LIB_BY_ID[e.refId])
+        .map((e) => {
+          const b = makeExercise(LIB_BY_ID[e.refId], profile?.goal);
+          return { ...b, sets: e.sets || b.sets, reps: e.reps || b.reps, rest: e.rest || b.rest };
+        }),
+    }))
+    .filter((d) => d.exercises.length);
+  if (!days.length) return null;
+  return { splitName: days.map((d) => d.id).join(""), days, cycleIndex: 0, source, ...extra };
+}
+
+// Lista compacta de ids válidos (refId) com grupo e equipamento, para o prompt da IA.
+export const LIB_IDS_SPEC = LIB.map((e) => `${e.id}(${e.group},${e.equip})`).join("; ");
+
 // Deriva a configuração do construtor a partir de um plano existente (para "editar").
 export function planToConfig(plan) {
   if (!plan?.days?.length) return [{ name: "", groups: [] }];

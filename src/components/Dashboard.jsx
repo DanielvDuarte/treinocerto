@@ -4,7 +4,7 @@ import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, Rot
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { LIB, LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, autoDayName, GROUP_ORDER, GROUP_LABELS, GROUP_BODY, dayLetter } from "@/lib/exercises";
+import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
 
@@ -17,6 +17,38 @@ const C = {
 };
 const display = { fontFamily: "'Space Grotesk', system-ui, sans-serif" };
 const body = { fontFamily: "'Inter', system-ui, sans-serif" };
+
+/* ============================== DATA / IDADE ============================== */
+// Calcula a idade (anos) a partir de uma data "YYYY-MM-DD".
+function ageFromBirthdate(bd) {
+  if (!bd) return 0;
+  const d = new Date(`${bd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return 0;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a -= 1;
+  return a > 0 && a < 120 ? a : 0;
+}
+// Estima uma data de nascimento base (1º de janeiro) a partir da idade — usado
+// para quem já tinha cadastro só com a idade, para pré-preencher o campo de data.
+function birthdateFromAge(age) {
+  const a = +age;
+  if (!a || a < 5 || a > 120) return "";
+  return `${new Date().getFullYear() - a}-01-01`;
+}
+// Progressão de carga padrão (desligada).
+const DEFAULT_PROGRESSION = { enabled: false, stepKg: 2.5 };
+// Dado o último registro de uma série, sugere a carga do próximo treino.
+function suggestKg(last, progression) {
+  const base = num(last?.kg);
+  if (!base) return null;
+  if (progression?.enabled) {
+    const step = num(progression.stepKg) || 0;
+    return +(base + step).toFixed(2);
+  }
+  return base;
+}
 
 const EQUIP = {
   maquina: { label: "Máquina", short: "Máquina", icon: Cog },
@@ -34,6 +66,33 @@ const COACH_SYSTEM =
   "dê apenas informação geral e oriente a procurar um profissional. Nunca recomende doses ou remédios específicos, dietas extremas ou jejum prolongado.";
 // Mantém a mesma assinatura usada na UI; agora chama /api/coach (chave protegida no servidor).
 const callClaude = (messages, system) => askCoach(messages, system);
+
+// Sistema do chat do coach: além de orientar, ele PODE propor mudanças no treino.
+// Quando o usuário pede para mudar/montar/ajustar o treino, o coach responde
+// normalmente e, no fim, inclui UM bloco <plano>{json}</plano> que o app
+// transforma em botão "Aplicar ao meu plano" (o usuário confirma).
+const COACH_CHAT_SYSTEM =
+  COACH_SYSTEM +
+  " Você também pode ajustar o treino da pessoa. Quando ela pedir para montar, mudar, trocar, adicionar ou tirar exercícios do treino, " +
+  "explique brevemente o que mudou e, no FINAL da resposta, inclua UM bloco EXATAMENTE neste formato (sem markdown dentro dele): " +
+  '<plano>{"days":[{"name":"Peito e Tríceps","exercises":[{"refId":"supino_maquina","sets":4,"reps":"10-12","rest":75}]}]}</plano>. ' +
+  "Regras do bloco: use SOMENTE estes ids no campo refId: " + LIB_IDS_SPEC + ". " +
+  "Respeite as limitações e o objetivo da pessoa. Inclua o bloco <plano> SOMENTE quando a pessoa realmente quer mudar o treino; em dúvidas gerais, responda sem bloco. Nunca invente ids.";
+
+// Extrai o bloco <plano>...</plano> de uma resposta do coach.
+// Retorna { clean, config } — clean é o texto sem o bloco; config é o JSON do plano.
+function extractPlanBlock(text) {
+  if (!text) return { clean: text, config: null };
+  const m = text.match(/<plano>([\s\S]*?)<\/plano>/i);
+  if (!m) return { clean: text, config: null };
+  const clean = text.replace(m[0], "").trim();
+  try {
+    const raw = m[1];
+    const json = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
+    if (json && Array.isArray(json.days) && json.days.length) return { clean, config: json };
+  } catch { /* bloco malformado: ignora e mostra só o texto */ }
+  return { clean, config: null };
+}
 
 /* ============================== MAPA MUSCULAR ==============================
    Boneco anatômico (MuscleMap, MIT) em src/components/BodyMap.jsx. */
@@ -137,7 +196,7 @@ function EquipBadge({ equip }) {
 const repsHint = (reps) => String(reps || "").split("-")[0];
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 
-function SetTable({ ex, done, log, prev, onToggle, onLog }) {
+function SetTable({ ex, done, log, prev, onToggle, onLog, progression }) {
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
   return (
     <div className="mt-3">
@@ -149,6 +208,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
           const isDone = done.includes(i);
           const row = log?.[i] || {};
           const last = prev?.[i];
+          const sugg = suggestKg(last, progression);
           return (
             <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
               className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
@@ -157,7 +217,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
                 placeholder={last?.reps ? String(last.reps) : repsHint(ex.reps)} aria-label={`Repetições da série ${i + 1}`}
                 style={{ color: C.text, ...body }} className={inputCls} />
               <input value={row.kg ?? ""} onChange={(e) => onLog(i, "kg", e.target.value)} inputMode="decimal"
-                placeholder={last?.kg ? String(last.kg) : "—"} aria-label={`Peso da série ${i + 1}`}
+                placeholder={sugg != null ? String(sugg) : "—"} aria-label={`Peso da série ${i + 1}`}
                 style={{ color: C.text, ...body }} className={inputCls} />
               <button onClick={() => onToggle(i)} aria-label={isDone ? `Desmarcar série ${i + 1}` : `Concluir série ${i + 1}`}
                 style={{ background: isDone ? C.mint : C.card2, border: `1px solid ${isDone ? C.mint : C.line}` }}
@@ -172,7 +232,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog }) {
   );
 }
 
-function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, onOpen }) {
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, onSwapTo, onOpen, progression }) {
   const total = ex.sets;
   const completed = done.length;
   const allDone = completed >= total;
@@ -187,7 +247,8 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
     if (!was) {
       const row = log?.[i] || {};
       if (row.reps == null || row.reps === "") onLog(i, "reps", prev?.[i]?.reps ? String(prev[i].reps) : repsHint(ex.reps));
-      if ((row.kg == null || row.kg === "") && prev?.[i]?.kg) onLog(i, "kg", String(prev[i].kg));
+      const sugg = suggestKg(prev?.[i], progression);
+      if ((row.kg == null || row.kg === "") && sugg != null) onLog(i, "kg", String(sugg));
     }
     onToggleSet(i);
     if (!was && completed + 1 < total) setResting(true);
@@ -197,6 +258,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
     if (target && target.id !== ex.refId) onSwapTo(idx, target);
   };
   const best = (prev || []).reduce((m, s) => Math.max(m, num(s?.kg)), 0);
+  const meta = progression?.enabled && best > 0 ? +(best + (num(progression.stepKg) || 0)).toFixed(2) : 0;
 
   return (
     <div style={{ background: C.card, border: `1px solid ${allDone ? C.mintDim : C.line}` }} className="rounded-3xl p-4">
@@ -206,6 +268,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
             <EquipBadge equip={ex.equip} />
             {best > 0 && <span style={{ background: "rgba(70,224,160,.12)", color: C.mint, border: `1px solid ${C.mintDim}`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><Trophy size={10} /> Último: {best}kg</span>}
+            {meta > 0 && <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, border: `1px solid rgba(255,138,61,.35)`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><LineIcon size={10} /> Meta: {meta}kg</span>}
           </div>
           <div className="flex items-start justify-between gap-2">
             <button onClick={() => onOpen("geral")} className="text-left"><h3 style={{ color: C.text, ...display }} className="font-bold leading-tight text-[17px] hover:underline decoration-1 underline-offset-2">{ex.name}</h3></button>
@@ -228,7 +291,7 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onSwap, on
         </div>
       )}
 
-      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} />
+      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} progression={progression} />
 
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
 
@@ -334,7 +397,8 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
             onLog={(setIdx, field, v) => logSet(i, setIdx, field, v)}
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
-            onOpen={(tab) => setDetail({ item: ex, idx: i, tab })} />
+            onOpen={(tab) => setDetail({ item: ex, idx: i, tab })}
+            progression={profile.progression} />
         ))}
       </div>
 
@@ -652,9 +716,10 @@ function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConf
       <PlanBuilder
         profile={profile}
         initialConfig={planToConfig(plan)}
+        initialPerWeek={plan.daysPerWeek}
         aiBusy={aiBusy}
         onCancel={() => setEditing(false)}
-        onBuild={async (cfg, useAI) => { const ok = await buildFromConfig(cfg, useAI); if (ok) setEditing(false); }}
+        onBuild={async (cfg, useAI, opts) => { const ok = await buildFromConfig(cfg, useAI, opts); if (ok) setEditing(false); }}
       />
     );
   }
@@ -665,7 +730,8 @@ function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConf
         <div className="min-w-0">
           <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
           <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
-            Divisão <b style={{ color: C.text }}>{plan.splitName}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um treino, o próximo dia vira o de <b style={{ color: C.text }}>Hoje</b>. Quer treinar outro? Escolha abaixo.
+            <b style={{ color: C.text }}>{plan.days.length} treino{plan.days.length > 1 ? "s" : ""}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um, o próximo vira o de <b style={{ color: C.text }}>Hoje</b>.
+            {plan.daysPerWeek ? ` Meta de ${plan.daysPerWeek}×/semana (~${Math.round(plan.daysPerWeek * 4)} treinos/mês).` : ""} Quer treinar outro? Escolha abaixo.
           </p>
         </div>
         <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="shrink-0 rounded-full px-3 py-2.5 text-sm font-bold flex items-center gap-1.5">
@@ -734,11 +800,29 @@ function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConf
 }
 
 /* ====================== CONSTRUTOR DE PLANO ====================== */
-function PlanBuilder({ profile, initialConfig, aiBusy, onCancel, onBuild }) {
+const FOCUS_OPTS = [
+  { v: "", l: "Equilibrado" },
+  { v: "abdômen / core", l: "Abdômen" },
+  { v: "glúteos", l: "Glúteos" },
+  { v: "pernas", l: "Pernas" },
+  { v: "braços (bíceps e tríceps)", l: "Braços" },
+  { v: "peito", l: "Peito" },
+  { v: "costas", l: "Costas" },
+  { v: "ombros", l: "Ombros" },
+];
+
+function PlanBuilder({ profile, initialConfig, initialPerWeek, aiBusy, onCancel, onBuild }) {
   const [days, setDays] = useState(() => {
     const base = (initialConfig && initialConfig.length ? initialConfig : [{ name: "", groups: [] }]);
     return base.map((d) => ({ name: d.name || "", groups: [...(d.groups || [])] }));
   });
+  const [perWeek, setPerWeek] = useState(initialPerWeek || 3);
+  // Fluxo "Montar com IA": antes de gerar, o coach pergunta as preferências.
+  const [aiOpen, setAiOpen] = useState(false);
+  const [focus, setFocus] = useState("");
+  const [focusText, setFocusText] = useState("");
+  const [minutes, setMinutes] = useState(60);
+  const [note, setNote] = useState("");
 
   const toggleGroup = (di, g) => setDays((ds) => ds.map((d, i) => i !== di ? d : ({ ...d, groups: d.groups.includes(g) ? d.groups.filter((x) => x !== g) : [...d.groups, g] })));
   const setName = (di, v) => setDays((ds) => ds.map((d, i) => i !== di ? d : ({ ...d, name: v })));
@@ -747,6 +831,16 @@ function PlanBuilder({ profile, initialConfig, aiBusy, onCancel, onBuild }) {
 
   const totalGroups = days.reduce((n, d) => n + d.groups.length, 0);
   const valid = days.some((d) => d.groups.length > 0);
+  const nTreinos = days.filter((d) => d.groups.length > 0).length;
+  const cycleWeeks = Math.max(1, Math.ceil(nTreinos / Math.max(1, perWeek)));
+
+  const buildBase = () => onBuild(days, false, { daysPerWeek: perWeek });
+  const buildAI = () => onBuild(days, true, {
+    daysPerWeek: perWeek,
+    focus: (focusText.trim() || focus || "").trim(),
+    minutes,
+    note: note.trim(),
+  });
 
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
@@ -754,9 +848,27 @@ function PlanBuilder({ profile, initialConfig, aiBusy, onCancel, onBuild }) {
         <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Montar seu plano</h2>
         <button onClick={onCancel} style={{ color: C.mut, ...body }} className="shrink-0 rounded-full px-3 py-2 text-sm font-semibold flex items-center gap-1"><X size={16} /> Cancelar</button>
       </div>
-      <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
-        Monte cada dia escolhendo os grupos que quer treinar — pode ser um só (ex.: <b style={{ color: C.text }}>só perna</b>) ou vários juntos. Adicione quantos dias quiser; eles entram em ciclo (A → B → C…).
-      </p>
+
+      {/* Como funciona + frequência semanal (deixa claro dia / semana / mês) */}
+      <div style={{ background: `radial-gradient(120% 140% at 0% 0%, rgba(140,123,255,.15) 0%, ${C.card} 50%)`, border: `1px solid ${C.line}` }} className="rounded-3xl p-4 mt-3">
+        <p style={{ color: C.text, ...body }} className="text-sm leading-relaxed">
+          Cada cartão abaixo é <b style={{ color: C.indigo }}>um treino</b> (um dia na academia) — pode ter um grupo só (ex.: <b style={{ color: C.text }}>só perna</b>) ou vários. Os treinos entram em <b style={{ color: C.text }}>ciclo</b> (A → B → C → A…): ao terminar um, o próximo vira o de <b style={{ color: C.text }}>Hoje</b>.
+        </p>
+        <div className="mt-3">
+          <p style={{ color: C.mut, ...body }} className="text-xs font-semibold mb-1.5">Quantos dias por semana você pretende treinar?</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {[2, 3, 4, 5, 6].map((n) => {
+              const on = perWeek === n;
+              return <button key={n} onClick={() => setPerWeek(n)} style={{ background: on ? C.indigo : C.bg2, color: on ? "#fff" : C.mut, border: `1px solid ${on ? C.indigo : C.line}`, ...body }} className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">{n}× / semana</button>;
+            })}
+          </div>
+        </div>
+        {nTreinos > 0 && (
+          <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-snug">
+            Você montou <b style={{ color: C.text }}>{nTreinos} treino{nTreinos > 1 ? "s" : ""}</b> no ciclo. Treinando <b style={{ color: C.text }}>{perWeek}×/semana</b>, o ciclo inteiro se repete a cada {cycleWeeks === 1 ? "~1 semana" : `~${cycleWeeks} semanas`} — cerca de {Math.round(perWeek * 4)} treinos por mês.
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 items-start mt-4">
         {days.map((d, di) => (
@@ -798,22 +910,66 @@ function PlanBuilder({ profile, initialConfig, aiBusy, onCancel, onBuild }) {
         </button>
       </div>
 
-      <div className="mt-5 flex flex-col sm:flex-row gap-3">
-        <button onClick={() => onBuild(days, false)} disabled={!valid || aiBusy}
-          style={{ background: valid && !aiBusy ? C.amber : C.card, color: valid && !aiBusy ? C.bg : C.mut2, ...display }}
-          className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
-          <Dumbbell size={18} /> Montar sem IA
-        </button>
-        <button onClick={() => onBuild(days, true)} disabled={!valid || aiBusy}
-          style={{ background: valid ? C.indigo : C.card, color: valid ? "#fff" : C.mut2, ...display }}
-          className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
-          {aiBusy ? <Loader2 size={18} className="an-spin" /> : <Sparkles size={18} />} {aiBusy ? "Gerando…" : "Montar com IA"}
-        </button>
-      </div>
-      <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-snug">
-        <b style={{ color: C.mut }}>Sem IA</b>: o app escolhe os exercícios dos grupos marcados, respeitando sua preferência de equipamento e objetivo. <b style={{ color: C.mut }}>Com IA</b>: o coach distribui séries, repetições e descanso considerando também suas limitações.
-        {totalGroups === 0 ? " Escolha ao menos um grupo para liberar os botões." : ""}
-      </p>
+      {/* Preferências para a IA (aparece ao escolher "Montar com IA") */}
+      {aiOpen && (
+        <div style={{ background: C.card, border: `1px solid ${C.indigo}` }} className="rounded-3xl p-4 mt-4">
+          <div className="flex items-center gap-2 mb-1">
+            <div style={{ background: C.indigo }} className="rounded-lg w-7 h-7 flex items-center justify-center shrink-0"><Sparkles size={15} color="#fff" /></div>
+            <p style={{ color: C.text, ...display }} className="font-bold">Antes de montar, me conta:</p>
+          </div>
+          <p style={{ color: C.mut2, ...body }} className="text-xs mb-3">O coach usa isso para montar um plano sob medida — não aleatório.</p>
+
+          <p style={{ color: C.mut, ...body }} className="text-xs font-semibold mb-1.5">Tem alguma preferência de foco?</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {FOCUS_OPTS.map((o) => {
+              const on = focus === o.v;
+              return <button key={o.l} onClick={() => { setFocus(o.v); setFocusText(""); }} style={{ background: on ? C.indigo : C.bg2, color: on ? "#fff" : C.mut, border: `1px solid ${on ? C.indigo : C.line}`, ...body }} className="rounded-lg px-3 py-1.5 text-xs font-semibold">{o.l}</button>;
+            })}
+          </div>
+          <input value={focusText} onChange={(e) => { setFocusText(e.target.value); if (e.target.value) setFocus(""); }} placeholder="ou escreva: ex. quero priorizar glúteo e abdômen"
+            style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-xl px-3 py-2 text-sm outline-none mt-2" />
+
+          <p style={{ color: C.mut, ...body }} className="text-xs font-semibold mb-1.5 mt-4">Quanto tempo por treino?</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {[30, 45, 60, 75].map((m) => {
+              const on = minutes === m;
+              return <button key={m} onClick={() => setMinutes(m)} style={{ background: on ? C.indigo : C.bg2, color: on ? "#fff" : C.mut, border: `1px solid ${on ? C.indigo : C.line}`, ...body }} className="rounded-lg px-3 py-1.5 text-xs font-semibold">{m >= 75 ? "75+ min" : `${m} min`}</button>;
+            })}
+          </div>
+
+          <p style={{ color: C.mut, ...body }} className="text-xs font-semibold mb-1.5 mt-4">Algum objetivo específico para este plano? (opcional)</p>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="ex.: competição em 3 meses, voltar a treinar devagar, melhorar resistência..."
+            style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" />
+
+          <div className="flex flex-col sm:flex-row gap-2 mt-4">
+            <button onClick={() => setAiOpen(false)} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}`, ...body }} className="sm:flex-none rounded-2xl px-4 py-3 font-semibold text-sm">Voltar</button>
+            <button onClick={buildAI} disabled={!valid || aiBusy} style={{ background: valid && !aiBusy ? C.indigo : C.card, color: valid && !aiBusy ? "#fff" : C.mut2, ...display }} className="flex-1 rounded-2xl py-3 font-bold text-base flex items-center justify-center gap-2">
+              {aiBusy ? <Loader2 size={18} className="an-spin" /> : <Sparkles size={18} />} {aiBusy ? "Gerando…" : "Gerar plano com IA"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!aiOpen && (
+        <>
+          <div className="mt-5 flex flex-col sm:flex-row gap-3">
+            <button onClick={buildBase} disabled={!valid || aiBusy}
+              style={{ background: valid && !aiBusy ? C.amber : C.card, color: valid && !aiBusy ? C.bg : C.mut2, ...display }}
+              className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
+              <Dumbbell size={18} /> Montar sem IA
+            </button>
+            <button onClick={() => setAiOpen(true)} disabled={!valid || aiBusy}
+              style={{ background: valid ? C.indigo : C.card, color: valid ? "#fff" : C.mut2, ...display }}
+              className="flex-1 rounded-2xl py-4 font-bold text-base flex items-center justify-center gap-2">
+              <Sparkles size={18} /> Montar com IA
+            </button>
+          </div>
+          <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-snug">
+            <b style={{ color: C.mut }}>Sem IA</b>: o app escolhe os exercícios dos grupos marcados, respeitando sua preferência de equipamento e objetivo. <b style={{ color: C.mut }}>Com IA</b>: o coach pergunta suas preferências (foco, tempo, objetivo) e monta sob medida.
+            {totalGroups === 0 ? " Escolha ao menos um grupo para liberar os botões." : ""}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -868,7 +1024,7 @@ function Stat({ label, value, color }) {
 }
 
 /* ============================== TELA: COACH ============================== */
-function CoachScreen({ profile, chat, setChat }) {
+function CoachScreen({ profile, plan, chat, setChat, onApplyPlan }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
@@ -879,15 +1035,18 @@ function CoachScreen({ profile, chat, setChat }) {
     const next = [...chat, { role: "user", content: text }];
     setChat(next); setInput(""); setBusy(true);
     try {
-      const ctx = `Contexto: objetivo=${profile.goal}, nível=${profile.level}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, altura=${profile.height}cm, limitações="${profile.limits || "nenhuma"}".`;
+      const planSummary = (plan?.days || []).map((d) => `${d.id} "${d.name}": ${d.exercises.map((e) => e.refId).join(", ")}`).join(" | ") || "nenhum";
+      const ctx = `Contexto: objetivo=${profile.goal}, nível=${profile.level}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, altura=${profile.height}cm, limitações="${profile.limits || "nenhuma"}". Treino atual (id, nome, exercícios): ${planSummary}.`;
+      // Envia só o texto puro ao modelo (sem blocos <plano> antigos nem botões).
       const msgs = next.map((m) => ({ role: m.role, content: m.content }));
       msgs[msgs.length - 1] = { role: "user", content: `${ctx}\n\nPergunta: ${text}` };
-      const reply = await callClaude(msgs, COACH_SYSTEM);
-      setChat([...next, { role: "assistant", content: reply || "Desculpe, não consegui responder agora." }]);
+      const reply = await callClaude(msgs, COACH_CHAT_SYSTEM);
+      const { clean, config } = extractPlanBlock(reply || "");
+      setChat([...next, { role: "assistant", content: clean || "Desculpe, não consegui responder agora.", plan: config }]);
     } catch { setChat([...next, { role: "assistant", content: "Não consegui me conectar agora. Tente novamente." }]); }
     finally { setBusy(false); }
   };
-  const presets = ["Como melhorar minha técnica no agachamento?", "O que comer antes de treinar?", "Estou com dor no ombro, o que faço?"];
+  const presets = ["Monte um treino de 40 min focado em abdômen", "Como melhorar minha técnica no agachamento?", "Estou com dor no ombro, troca meu treino de hoje"];
   return (
     <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-24 flex flex-col lg:max-w-3xl" style={{ minHeight: "70vh" }}>
       <div className="flex items-center gap-2 mb-3">
@@ -901,11 +1060,22 @@ function CoachScreen({ profile, chat, setChat }) {
             <div className="space-y-2 mt-3">{presets.map((p) => <button key={p} onClick={() => send(p)} style={{ background: C.bg2, color: C.amberSoft, border: `1px solid ${C.line}`, ...body }} className="w-full text-left rounded-xl px-3 py-2 text-sm">{p}</button>)}</div>
           </div>
         )}
-        {chat.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div style={{ background: m.role === "user" ? C.amber : C.card, color: m.role === "user" ? C.bg : C.text, border: m.role === "user" ? "none" : `1px solid ${C.line}`, ...body }} className="rounded-2xl px-4 py-2.5 text-sm leading-relaxed max-w-[85%] whitespace-pre-wrap">{m.content}</div>
-          </div>
-        ))}
+        {chat.map((m, i) => {
+          const nDays = m.plan?.days?.length || 0;
+          const nEx = (m.plan?.days || []).reduce((a, d) => a + (d.exercises?.length || 0), 0);
+          return (
+            <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+              <div style={{ background: m.role === "user" ? C.amber : C.card, color: m.role === "user" ? C.bg : C.text, border: m.role === "user" ? "none" : `1px solid ${C.line}`, ...body }} className="rounded-2xl px-4 py-2.5 text-sm leading-relaxed max-w-[85%] whitespace-pre-wrap">{m.content}</div>
+              {m.plan && nDays > 0 && (
+                <div style={{ background: C.card2, border: `1px solid ${C.indigo}` }} className="rounded-2xl p-3 mt-2 max-w-[85%] w-full">
+                  <p style={{ color: C.text, ...body }} className="text-xs font-semibold flex items-center gap-1.5"><Wand2 size={14} style={{ color: C.indigo }} /> O coach sugeriu um treino</p>
+                  <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-0.5">{nDays} treino{nDays > 1 ? "s" : ""} · {nEx} exercício{nEx > 1 ? "s" : ""}</p>
+                  <button onClick={() => onApplyPlan(m.plan)} style={{ background: C.indigo, color: "#fff", ...display }} className="w-full rounded-xl py-2 mt-2 text-sm font-bold flex items-center justify-center gap-1.5"><Check size={15} /> Aplicar ao meu treino</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
         {busy && <div className="flex justify-start"><div style={{ background: C.card, border: `1px solid ${C.line}`, color: C.mut }} className="rounded-2xl px-4 py-2.5 text-sm flex items-center gap-2"><Loader2 size={14} className="an-spin" /> digitando...</div></div>}
         <div ref={endRef} />
       </div>
@@ -938,10 +1108,31 @@ function SetupField({ label, k, ph, unit, p, set }) {
     </div>
   );
 }
+function SetupDateField({ label, k, p, set }) {
+  const age = ageFromBirthdate(p[k]);
+  return (
+    <div>
+      <label style={{ color: C.mut, ...body }} className="text-xs font-semibold">{label}</label>
+      <div className="flex items-center mt-1" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12 }}>
+        <input type="date" value={p[k] || ""} onChange={(e) => set(k, e.target.value)} max={today()} min="1920-01-01"
+          style={{ color: C.text, colorScheme: "dark", ...body }} className="flex-1 bg-transparent px-3 py-2.5 outline-none text-sm" />
+        {age > 0 && <span style={{ color: C.amberSoft, ...body }} className="text-xs font-semibold pr-3 whitespace-nowrap">{age} anos</span>}
+      </div>
+    </div>
+  );
+}
 function Setup({ onDone, initial }) {
-  const [p, setP] = useState(initial || { name: "", sex: "masc", age: "", height: "", weight: "", goalWeight: "", bodyNow: "magro", bodyGoal: "definido", level: "iniciante", goal: "hipertrofia", equip: "ambos", limits: "" });
+  const [p, setP] = useState(() => {
+    const base = initial || { name: "", sex: "masc", age: "", height: "", weight: "", goalWeight: "", bodyNow: "magro", bodyGoal: "definido", level: "iniciante", goal: "hipertrofia", equip: "ambos", limits: "" };
+    // Quem já tinha só idade cadastrada ganha uma data base estimada e editável.
+    return { ...base, birthdate: base.birthdate || birthdateFromAge(base.age) };
+  });
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
   const valid = p.name && p.height && p.weight;
+  const submit = () => {
+    const age = ageFromBirthdate(p.birthdate) || +p.age || 0;
+    onDone({ ...p, birthdate: p.birthdate || birthdateFromAge(age), age, height: +p.height || 0, weight: +p.weight || 0, goalWeight: +p.goalWeight || 0, progression: p.progression || DEFAULT_PROGRESSION });
+  };
   return (
     <div style={{ background: C.bg, minHeight: "100vh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }} className="px-4">
       <div className="mx-auto max-w-[480px] md:max-w-[560px]">
@@ -949,8 +1140,8 @@ function Setup({ onDone, initial }) {
         <p style={{ color: C.mut, ...body }} className="text-sm mb-5">Vamos montar seu plano. Leva 1 minuto.</p>
         <div className="space-y-4">
           <SetupField p={p} set={set} label="Como te chamamos?" k="name" ph="seu nome" />
-          <div className="grid grid-cols-3 gap-2">
-            <SetupField p={p} set={set} label="Idade" k="age" ph="30" unit="anos" />
+          <SetupDateField p={p} set={set} label="Data de nascimento" k="birthdate" />
+          <div className="grid grid-cols-2 gap-2">
             <SetupField p={p} set={set} label="Altura" k="height" ph="175" unit="cm" />
             <SetupField p={p} set={set} label="Peso" k="weight" ph="80" unit="kg" />
           </div>
@@ -962,7 +1153,7 @@ function Setup({ onDone, initial }) {
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Seu nível</label><div className="mt-1"><SetupSeg p={p} set={set} field="level" options={[{ v: "iniciante", l: "Iniciante" }, { v: "intermediario", l: "Intermediário" }, { v: "avancado", l: "Avançado" }]} /></div></div>
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Prefere treinar com</label><div className="mt-1"><SetupSeg p={p} set={set} field="equip" options={[{ v: "maquina", l: "Máquinas" }, { v: "livre", l: "Peso livre" }, { v: "ambos", l: "Tanto faz" }]} /></div></div>
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Alguma limitação? (opcional)</label><textarea value={p.limits} onChange={(e) => set("limits", e.target.value)} rows={2} placeholder="ex.: dor no joelho, ombro, hérnia..." style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-xl px-3 py-2.5 mt-1 outline-none text-sm resize-none" /></div>
-          <button onClick={() => onDone({ ...p, age: +p.age || 0, height: +p.height || 0, weight: +p.weight || 0, goalWeight: +p.goalWeight || 0 })} disabled={!valid} style={{ background: valid ? C.amber : C.card, color: valid ? C.bg : C.mut2, ...display }} className="w-full rounded-2xl py-4 font-bold text-base mt-2">Montar meu plano</button>
+          <button onClick={submit} disabled={!valid} style={{ background: valid ? C.amber : C.card, color: valid ? C.bg : C.mut2, ...display }} className="w-full rounded-2xl py-4 font-bold text-base mt-2">Montar meu plano</button>
           <p style={{ color: C.mut2, ...body }} className="text-xs leading-relaxed text-center px-2">Ferramenta de orientação — não substitui educador físico ou médico. Faça avaliação profissional, principalmente com limitações ou condições de saúde.</p>
         </div>
       </div>
@@ -1060,8 +1251,9 @@ export default function Dashboard({ userName }) {
 
   // Monta o plano a partir da configuração do construtor (dias + grupos escolhidos).
   // useAI=false: o próprio app escolhe os exercícios. useAI=true: a IA distribui.
-  const buildFromConfig = async (daysConfig, useAI) => {
+  const buildFromConfig = async (daysConfig, useAI, opts = {}) => {
     if (!profile) return false;
+    const daysPerWeek = opts.daysPerWeek || profile.daysPerWeek || 3;
     const clean = (daysConfig || [])
       .map((d) => ({ name: (d.name || "").trim(), groups: (d.groups || []).filter((g) => GROUP_ORDER.includes(g)) }))
       .filter((d) => d.groups.length);
@@ -1070,36 +1262,45 @@ export default function Dashboard({ userName }) {
     if (!useAI) {
       const plan = buildCustomPlan(profile, clean);
       if (!plan) { showToast("Não encontrei exercícios para esses grupos."); return false; }
-      setPlan(plan); setSession({ sets: {} }); showToast("Plano montado!");
+      setPlan({ ...plan, daysPerWeek }); setSession({ sets: {} }); showToast("Plano montado!");
       return true;
     }
 
     setAiBusy(true);
     try {
-      const allowed = LIB.map((e) => `${e.id}(${e.group},${e.equip})`).join("; ");
+      // Nº de exercícios por dia conforme o tempo disponível por treino.
+      const mins = opts.minutes || 60;
+      const perDay = mins <= 30 ? "3 a 4" : mins <= 45 ? "4 a 5" : mins <= 60 ? "5 a 6" : "6 a 8";
       const daysSpec = clean.map((d, i) => `${dayLetter(i)}${d.name ? ` "${d.name}"` : ""}: grupos=${d.groups.join(",")}`).join(" | ");
-      const sys = "Você monta treinos. Responda APENAS com JSON válido, sem markdown.";
-      const prompt = `Monte um plano RESPEITANDO EXATAMENTE os dias e grupos que o usuário escolheu. Dias: ${daysSpec}. Em cada dia use SOMENTE exercícios dos grupos daquele dia. Perfil: objetivo=${profile.goal}, nível=${profile.level}, equip preferido=${profile.equip}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, limitações="${profile.limits || "nenhuma"}". Use SOMENTE estes ids (refId), com seus grupos entre parênteses: ${allowed}. Respeite limitações. 4 a 6 exercícios por dia. Formato: {"days":[{"id":"A","name":"...","exercises":[{"refId":"...","sets":4,"reps":"10-12","rest":75}]}]}. Só o JSON.`;
+      const prefs = [
+        opts.focus ? `FOCO pedido pelo usuário: ${opts.focus} (dê mais volume/prioridade a isso, sem ignorar os grupos escolhidos).` : "",
+        `Tempo por treino: ~${mins} min, então ${perDay} exercícios por dia.`,
+        `Frequência: ${daysPerWeek}x por semana.`,
+        opts.note ? `Objetivo específico: ${opts.note}.` : "",
+      ].filter(Boolean).join(" ");
+      const sys = "Você monta treinos de academia. Responda APENAS com JSON válido, sem markdown.";
+      const prompt = `Monte um plano RESPEITANDO EXATAMENTE os dias e grupos que o usuário escolheu. Dias: ${daysSpec}. Em cada dia use SOMENTE exercícios dos grupos daquele dia. ${prefs} Perfil: objetivo=${profile.goal}, nível=${profile.level}, equip preferido=${profile.equip}, peso=${profile.weight}kg, meta=${profile.goalWeight}kg, limitações="${profile.limits || "nenhuma"}". Use SOMENTE estes ids (refId), com seus grupos entre parênteses: ${LIB_IDS_SPEC}. Respeite limitações. Formato: {"days":[{"id":"A","name":"...","exercises":[{"refId":"...","sets":4,"reps":"10-12","rest":75}]}]}. Só o JSON.`;
       const raw = await callClaude([{ role: "user", content: prompt }], sys);
       const json = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
-      const days = (json.days || []).map((d, i) => ({
-        id: dayLetter(i),
-        name: (d.name || "").trim() || autoDayName(clean[i]?.groups) || `Treino ${dayLetter(i)}`,
-        exercises: (d.exercises || []).filter((e) => LIB_BY_ID[e.refId]).map((e) => {
-          const b = makeExercise(LIB_BY_ID[e.refId], profile.goal);
-          return { ...b, sets: e.sets || b.sets, reps: e.reps || b.reps, rest: e.rest || b.rest };
-        }),
-      })).filter((d) => d.exercises.length);
-      if (!days.length) throw new Error("vazio");
-      setPlan({ splitName: days.map((d) => d.id).join(""), days, cycleIndex: 0, source: "ai" });
-      setSession({ sets: {} }); showToast("Plano personalizado pela IA!");
+      const plan = planFromAIJson(profile, json, "ai", { daysPerWeek });
+      if (!plan) throw new Error("vazio");
+      setPlan(plan); setSession({ sets: {} }); showToast("Plano personalizado pela IA!");
       return true;
     } catch {
       // Fallback: monta sem IA com os mesmos grupos, em vez de deixar o usuário na mão.
       const plan = buildCustomPlan(profile, clean);
-      if (plan) { setPlan(plan); setSession({ sets: {} }); showToast("IA indisponível — montei com os grupos que você escolheu."); return true; }
+      if (plan) { setPlan({ ...plan, daysPerWeek }); setSession({ sets: {} }); showToast("IA indisponível — montei com os grupos que você escolheu."); return true; }
       showToast("Não consegui gerar o plano agora."); return false;
     } finally { setAiBusy(false); }
+  };
+
+  // O coach propõe um treino no chat; aqui o usuário confirma e o app aplica.
+  const applyCoachPlan = (json) => {
+    if (!profile) return;
+    const built = planFromAIJson(profile, json, "ai", { daysPerWeek: plan?.daysPerWeek || profile.daysPerWeek || 3 });
+    if (!built) { showToast("O coach não enviou um treino válido."); return; }
+    setPlan(built); setSession({ sets: {} }); setTab("plan");
+    showToast("Treino do coach aplicado!");
   };
 
   if (!ready) return <div style={{ background: C.bg, minHeight: "100vh" }} className="flex items-center justify-center"><Loader2 className="an-spin" color={C.amber} size={32} /></div>;
@@ -1152,7 +1353,7 @@ export default function Dashboard({ userName }) {
         {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
         {tab === "plan" && <PlanScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} buildFromConfig={buildFromConfig} aiBusy={aiBusy} tracking={tracking} goToday={() => { setTab("today"); window.scrollTo({ top: 0 }); }} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
-        {tab === "coach" && <CoachScreen profile={profile} chat={chat} setChat={setChat} />}
+        {tab === "coach" && <CoachScreen profile={profile} plan={plan} chat={chat} setChat={setChat} onApplyPlan={applyCoachPlan} />}
         {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
       </div>
       </div>
@@ -1170,18 +1371,48 @@ export default function Dashboard({ userName }) {
 
 function SettingsScreen({ profile, onReset, onSignOut, setProfile, setPlan, showToast }) {
   const [editing, setEditing] = useState(false);
-  if (editing) return <Setup initial={profile} onDone={(pp) => { const np = { ...pp, age: +pp.age || 0, height: +pp.height || 0, weight: +pp.weight || 0, goalWeight: +pp.goalWeight || 0 }; setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />;
+  if (editing) return <Setup initial={profile} onDone={(np) => { setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />;
+  const prog = profile.progression || DEFAULT_PROGRESSION;
+  const bd = profile.birthdate || birthdateFromAge(profile.age);
+  const age = ageFromBirthdate(bd) || profile.age;
+  const setProg = (patch) => setProfile((pr) => ({ ...pr, progression: { ...DEFAULT_PROGRESSION, ...(pr.progression || {}), ...patch } }));
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10 lg:max-w-xl">
       <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Perfil</h2>
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 space-y-2">
         <Row k="Nome" v={profile.name} />
-        <Row k="Idade / Altura / Peso" v={`${profile.age || "—"} anos · ${profile.height}cm · ${profile.weight}kg`} />
+        <Row k="Nascimento / Idade" v={`${bd ? bd.split("-").reverse().join("/") : "—"} · ${age || "—"} anos`} />
+        <Row k="Altura / Peso" v={`${profile.height}cm · ${profile.weight}kg`} />
         <Row k="Meta de peso" v={`${profile.goalWeight || "—"}kg`} />
         <Row k="Objetivo / Nível" v={`${profile.goal} · ${profile.level}`} />
         <Row k="Equipamento" v={profile.equip || "ambos"} />
         <Row k="Limitações" v={profile.limits || "nenhuma"} />
       </div>
+
+      {/* Progressão de carga */}
+      <div style={{ background: C.card, border: `1px solid ${prog.enabled ? C.mintDim : C.line}` }} className="rounded-2xl p-4 mt-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p style={{ color: C.text, ...body }} className="text-sm font-semibold flex items-center gap-1.5"><LineIcon size={16} style={{ color: C.mint }} /> Progressão de carga</p>
+            <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5 leading-snug">A cada treino, o app sugere um pouco mais de carga que o último, para você evoluir aos poucos.</p>
+          </div>
+          <button onClick={() => setProg({ enabled: !prog.enabled })} aria-label="Ligar/desligar progressão"
+            style={{ background: prog.enabled ? C.mint : C.card2, border: `1px solid ${prog.enabled ? C.mint : C.line}` }}
+            className="relative shrink-0 w-12 h-7 rounded-full transition-colors">
+            <span style={{ background: prog.enabled ? C.bg : C.mut, left: prog.enabled ? 22 : 3 }} className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full transition-all" />
+          </button>
+        </div>
+        {prog.enabled && (
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+            <span style={{ color: C.mut2, ...body }} className="text-[11px] uppercase tracking-wide mr-1">Incremento:</span>
+            {[1, 2.5, 5].map((s) => {
+              const on = num(prog.stepKg) === s;
+              return <button key={s} onClick={() => setProg({ stepKg: s })} style={{ background: on ? C.mint : C.bg2, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.mint : C.line}`, ...body }} className="rounded-lg px-3 py-1.5 text-xs font-semibold">+{s} kg</button>;
+            })}
+          </div>
+        )}
+      </div>
+
       <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="w-full rounded-2xl py-3 mt-3 font-bold">Editar e refazer plano</button>
       <button onClick={onSignOut} style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><LogOut size={16} /> Sair da conta</button>
       <button onClick={onReset} style={{ background: C.card, color: C.red, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><RotateCcw size={16} /> Apagar tudo e recomeçar</button>
