@@ -5,6 +5,16 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.4.2] — 2026-11-25
+
+### Alterado
+
+- **Cronômetro do treino** só começa ao apertar **"Iniciar treino"** — antes ele
+  disparava ao marcar a primeira série. Sem botão de parar: só inicia e o contador
+  de duração passa a correr no topo.
+- Revertida a cor do botão "Iniciar treino" (voltou ao padrão) — o ajuste pedido
+  era de comportamento, não de cor.
+
 ## [1.4.1] — 2026-11-25
 
 ### Alterado

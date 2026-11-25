@@ -530,7 +530,8 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
   const toggleSet = (exIdx, setIdx) => setSession((s) => {
     const sets = { ...s.sets }; const arr = sets[exIdx] ? [...sets[exIdx]] : [];
     const pos = arr.indexOf(setIdx); if (pos >= 0) arr.splice(pos, 1); else arr.push(setIdx);
-    sets[exIdx] = arr; return { ...s, sets, startedAt: s.startedAt || Date.now() };
+    // O cronômetro NÃO começa aqui — só quando a pessoa aperta "Iniciar treino".
+    sets[exIdx] = arr; return { ...s, sets };
   });
   const logSet = (exIdx, setIdx, field, value) => setSession((s) => {
     const log = { ...(s.log || {}) };
@@ -712,7 +713,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
       {allDone
         ? <FloatingCTA tone="mint" icon={Trophy} onClick={onComplete}>Finalizar treino</FloatingCTA>
         : !session.startedAt
-          ? <FloatingCTA tone="mint" icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
+          ? <FloatingCTA icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
           : <FloatingCTA icon={Timer} disabled>Faltam {totalSets - doneSets} séries</FloatingCTA>}
 
       {detail && (
