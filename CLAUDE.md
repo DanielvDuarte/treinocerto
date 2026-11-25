@@ -30,7 +30,7 @@ src/
     api/coach/route.js       # coach IA (Anthropic) — chave só no servidor
   components/
     Login.jsx                # botões Google/Apple (Supabase OAuth)
-    Dashboard.jsx            # o app inteiro: Hoje, Plano, Evolução, Coach, Perfil
+    Dashboard.jsx            # o app inteiro: Hoje, Plano, Evolução, Exercícios, Coach, Perfil
     BodyMap.jsx              # boneco anatômico (frente/costas, masc/fem) — MuscleMap (MIT)
     InstallApp.jsx           # convite/botão "Instalar app" (PWA)
   lib/
@@ -90,7 +90,10 @@ Antes: criar o projeto no Supabase e rodar `supabase/schema.sql` (ver DEPLOY.md)
 
 ## Estado atual
 
-- Feito: UI completa (onboarding, plano, treino guiado, evolução, coach),
+- Feito: UI completa (onboarding, plano, treino guiado, evolução, coach,
+  aba Exercícios com o catálogo de 1.324; visual repaginado na v1.2.0 — menu
+  inferior flutuante, cabeçalhos com menu ⋮, peças `ScreenHeader`/`OptionsMenu`/
+  `Segmented`/`ListRow` no topo do Dashboard.jsx),
   camada Supabase (dados + auth + RLS), rota do coach, mídia com rollback,
   PWA, Docker + CI (GitLab/GitHub), docs (README, DEPLOY, MIDIA).
 - Repo: `github.com/DanielvDuarte/treinocerto`, branch `main`.
@@ -100,9 +103,7 @@ Antes: criar o projeto no Supabase e rodar `supabase/schema.sql` (ver DEPLOY.md)
 1. Criar projeto no Supabase, rodar `schema.sql`, configurar OAuth **Google**
    (e Apple se houver conta Apple Developer); preencher `.env.local`.
 2. Deploy: **Render** ou **Vercel** (grátis) rodando o app; Supabase guarda os dados.
-3. Aba **"Exercícios"**: navegar os 1.324 do `exercise-catalog.json` por grupo
-   muscular (dados já embutidos; falta a tela).
-4. Se o teste agradar: fechar **licença da Gym Visual** para os GIFs em produção.
+3. Se o teste agradar: fechar **licença da Gym Visual** para os GIFs em produção.
 
 ## Versionamento
 

@@ -5,6 +5,45 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.3.0] — 2026-11-24
+
+### Adicionado
+
+- **Aba Exercícios** no menu: navega os **1.324 exercícios** do catálogo
+  - **Por músculo** (19 grupos, com o boneco anatômico destacando o músculo);
+  - **Equipamentos** (pesos livres, máquinas e polias, peso do corpo e acessórios);
+  - **Do app**: os 38 exercícios da biblioteca, com passo a passo e última carga;
+  - **busca** por nome, músculo ou equipamento e detalhe de cada exercício. Quando o
+    exercício também está na biblioteca, abre o passo a passo em português.
+- O catálogo carrega só ao abrir a aba (não pesa o resto do app). Nomes do catálogo
+  seguem em inglês, como no dataset original.
+
+### Corrigido
+
+- **GIFs dos exercícios sumiam** quando `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` apontava para
+  uma pasta local vazia (GIFs não baixados): agora o app tenta o CDN como reserva antes
+  de cair para o boneco anatômico. Vale para o treino e para a aba Exercícios.
+
+## [1.2.0] — 2026-11-24
+
+### Alterado
+
+- **Repaginação visual** inspirada em apps de treino modernos, mantendo as cores do
+  TreinoCerto (laranja + verde-menta sobre fundo escuro):
+  - **Menu inferior flutuante** em pílula com 5 abas (Hoje, Plano, Evolução, Coach,
+    Perfil) e destaque em cápsula na aba ativa; menu lateral do computador no mesmo estilo.
+  - **Cabeçalho por tela** com ícone + título grande e botões redondos de ação; menus de
+    **opções (⋮)** em popover em vez de botões soltos.
+  - **Hoje**: seletor de treinos do ciclo (A/B/C), chips de resumo, cartões quadrados de
+    músculos, exercícios com miniatura e "séries • reps • kg", ações rápidas em lista e
+    botão flutuante **Iniciar / Finalizar treino**.
+  - **Plano**: atalhos de personalização em cartões e treinos com lista de exercícios.
+  - **Evolução**: semana com anel nos dias treinados, cartões de números e progresso semanal.
+  - **Perfil**: números no topo e listas de ajustes ("Perfil e ajustes", "Treino", "Conta").
+  - Rótulos em fonte condensada (Barlow Condensed), controles segmentados em pílula e
+    folhas inferiores com alça.
+- "Apagar tudo e recomeçar" agora pede confirmação.
+
 ## [1.1.0] — 2026-11-25
 
 ### Adicionado

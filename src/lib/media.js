@@ -21,7 +21,9 @@ const DEFAULT_BASES = [
   "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main",
 ];
 const CUSTOM = (process.env.NEXT_PUBLIC_EXERCISE_MEDIA_BASE || "").replace(/\/$/, "");
-const BASES = CUSTOM ? [CUSTOM] : DEFAULT_BASES;
+// Com base própria (ex.: pasta local), o CDN entra como reserva: se o GIF não
+// estiver lá (pasta vazia / não baixada), o app tenta o CDN em vez do boneco.
+const BASES = CUSTOM ? [CUSTOM, ...DEFAULT_BASES] : DEFAULT_BASES;
 
 export const MEDIA_ENABLED = SOURCE === "gymvisual";
 
@@ -44,8 +46,12 @@ export function imageUrls(refId) {
 }
 // Para o catálogo completo (1.324): URL a partir do caminho do item.
 export function catalogMedia(path) {
-  if (!MEDIA_ENABLED || !path) return null;
-  return `${BASES[0]}/${path}`;
+  return catalogMediaUrls(path)[0] || null;
+}
+// Todas as URLs (preferida + reservas) de um item do catálogo.
+export function catalogMediaUrls(path) {
+  if (!MEDIA_ENABLED || !path) return [];
+  return BASES.map((b) => `${b}/${path}`);
 }
 
 export const MEDIA_SOURCE = SOURCE;

@@ -1,11 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2 } from "lucide-react";
+import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2, MoreVertical, MoreHorizontal, SlidersHorizontal, LayoutGrid, BarChart3, Target, Ruler, HeartPulse, Search, ChevronLeft, BookOpen } from "lucide-react";
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, startingLoad, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
-import { gifUrls } from "@/lib/media";
+import { gifUrls, catalogMediaUrls, MEDIA_MAP } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
 import { APP_VERSION } from "@/lib/version";
 
@@ -18,6 +18,137 @@ const C = {
 };
 const display = { fontFamily: "'Space Grotesk', system-ui, sans-serif" };
 const body = { fontFamily: "'Inter', system-ui, sans-serif" };
+// Rótulos condensados em caixa alta (seções, menu inferior, botões de ação).
+const label = { fontFamily: "'Barlow Condensed', 'Inter', system-ui, sans-serif", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 };
+// Superfícies "vidro" (menu inferior, cabeçalho, popovers).
+const GLASS = { background: "rgba(32,37,46,.78)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,.07)" };
+const CTA_BG = `linear-gradient(90deg, ${C.amber} 0%, #FFA766 100%)`;
+
+/* ============================== PEÇAS DE LAYOUT ==============================
+   Cabeçalho de tela, botões redondos, menu de opções (⋮), rótulo de seção,
+   controle segmentado e linhas de lista — usados em todas as telas. */
+function ScreenHeader({ title, sub, children }) {
+  return (
+    <div style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)" }} className="sticky top-0 z-40 -mx-4 px-4 pb-3 lg:static lg:mx-0 lg:px-0 lg:pt-0 tc-head">
+      <div className="flex items-center justify-between gap-3 min-h-[44px]">
+        <div className="min-w-0 flex items-center gap-2">
+          <Dumbbell size={22} color={C.amber} className="shrink-0 -rotate-45" />
+          <div className="min-w-0">
+            <h1 style={{ color: C.text, ...display }} className="text-[24px] lg:text-[28px] font-bold leading-none truncate">{title}</h1>
+            {sub && <p style={{ color: C.mut2, ...body }} className="text-xs mt-1 truncate">{sub}</p>}
+          </div>
+        </div>
+        {children && <div style={GLASS} className="shrink-0 rounded-full flex items-center p-1 gap-0.5">{children}</div>}
+      </div>
+    </div>
+  );
+}
+function IconBtn({ icon: Icon, onClick, label: aria, active }) {
+  return (
+    <button onClick={onClick} aria-label={aria} title={aria} style={{ color: active ? C.amber : C.text }}
+      className="w-9 h-9 rounded-full flex items-center justify-center active:bg-white/10 hover:bg-white/10">
+      <Icon size={18} />
+    </button>
+  );
+}
+// Menu de opções estilo popover: botão ⋮ (ou outro ícone) que abre uma lista de ações.
+function OptionsMenu({ items, icon: Icon = MoreVertical, ariaLabel = "Mais opções", align = "right", trigger }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", close); window.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", close); window.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      {trigger ? trigger(() => setOpen((o) => !o)) : <IconBtn icon={Icon} label={ariaLabel} onClick={() => setOpen((o) => !o)} active={open} />}
+      {open && (
+        <div role="menu" style={{ ...GLASS, background: "rgba(27,31,39,.96)", boxShadow: "0 18px 50px rgba(0,0,0,.5)" }}
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-[70] min-w-[230px] rounded-2xl py-1.5 tc-pop`}>
+          {items.filter(Boolean).map((it, i) => {
+            const I = it.icon;
+            return (
+              <button key={i} role="menuitem" onClick={() => { setOpen(false); it.onClick(); }}
+                style={{ color: it.danger ? C.red : C.text, ...body }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[15px] active:bg-white/5 hover:bg-white/5">
+                {I && <I size={18} style={{ color: it.danger ? C.red : C.mut }} className="shrink-0" />}
+                <span className="flex-1 min-w-0">{it.label}{it.hint && <span style={{ color: C.mut2 }} className="block text-xs">{it.hint}</span>}</span>
+                {it.chevron && <ChevronRight size={16} style={{ color: C.mut2 }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+function SectionLabel({ children, right, className = "" }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 mt-6 mb-3 ${className}`}>
+      <p style={{ color: C.text, ...label }} className="text-[13px]">{children}</p>
+      {right}
+    </div>
+  );
+}
+// Controle segmentado em pílula (abas internas).
+function Segmented({ options, value, onChange, size = "md" }) {
+  return (
+    <div style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="rounded-full p-1 flex gap-1">
+      {options.map(([v, l]) => {
+        const on = value === v;
+        return (
+          <button key={v} onClick={() => onChange(v)} style={{ background: on ? C.card2 : "transparent", color: on ? C.amber : C.mut, boxShadow: on ? "inset 0 0 0 1px rgba(255,138,61,.25)" : "none", ...label }}
+            className={`flex-1 rounded-full ${size === "sm" ? "py-1.5 text-[11px]" : "py-2 text-[12px]"} px-2 whitespace-nowrap`}>{l}</button>
+        );
+      })}
+    </div>
+  );
+}
+// Pílula de filtro / chip (ex.: "5 músculos ▾", "Peso livre").
+function Chip({ children, on, onClick, icon: Icon }) {
+  const Tag = onClick ? "button" : "span";
+  return (
+    <Tag onClick={onClick} style={{ background: on ? "rgba(255,138,61,.14)" : C.card, color: on ? C.amber : C.text, border: `1px solid ${on ? "rgba(255,138,61,.45)" : C.line}`, ...body }}
+      className="shrink-0 rounded-full px-3.5 py-2 text-[13px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
+      {Icon && <Icon size={14} style={{ color: on ? C.amber : C.mut }} />}{children}
+    </Tag>
+  );
+}
+// Grupo de linhas no estilo "lista de ajustes": fundo contínuo e divisórias finas.
+function ListGroup({ children }) {
+  return <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl overflow-hidden divide-y divide-[#2A313C]">{children}</div>;
+}
+function ListRow({ icon: Icon, title, value, onClick, chevron = !!onClick, danger, right, sub }) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 text-left ${onClick ? "active:bg-white/5 hover:bg-white/5" : ""}`}>
+      {Icon && <span style={{ background: C.bg2, color: danger ? C.red : C.mut }} className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center"><Icon size={17} /></span>}
+      <span className="flex-1 min-w-0">
+        <span style={{ color: danger ? C.red : C.text, ...body }} className="block text-[15px] font-medium truncate">{title}</span>
+        {sub && <span style={{ color: C.mut2, ...body }} className="block text-xs mt-0.5 leading-snug">{sub}</span>}
+      </span>
+      {value != null && <span style={{ color: C.mut, ...body }} className="text-sm text-right shrink-0 max-w-[50%] truncate">{value}</span>}
+      {right}
+      {chevron && <ChevronRight size={17} style={{ color: C.mut2 }} className="shrink-0" />}
+    </Tag>
+  );
+}
+// Botão de ação principal flutuante (pílula com gradiente).
+function FloatingCTA({ children, onClick, disabled, tone = "amber", icon: Icon }) {
+  const bg = disabled ? C.card2 : tone === "mint" ? `linear-gradient(90deg, ${C.mint}, #7CF5B8)` : CTA_BG;
+  const glow = disabled ? "none" : tone === "mint" ? "0 12px 34px rgba(70,224,160,.32)" : "0 12px 34px rgba(255,138,61,.35)";
+  return (
+    <div className="sticky bottom-[calc(92px+env(safe-area-inset-bottom))] lg:bottom-5 mt-5 z-30">
+      <button onClick={onClick} disabled={disabled} style={{ background: bg, color: disabled ? C.mut : C.bg, boxShadow: glow, border: disabled ? `1px solid ${C.line}` : "none", ...label }}
+        className="w-full rounded-full py-4 text-[17px] flex items-center justify-center gap-2 lg:max-w-md lg:mx-auto">
+        {Icon && <Icon size={19} />}{children}
+      </button>
+    </div>
+  );
+}
 
 /* ============================== DATA / IDADE ============================== */
 // Calcula a idade (anos) a partir de uma data "YYYY-MM-DD".
@@ -201,7 +332,7 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progressio
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
   return (
     <div className="mt-3">
-      <div style={{ color: C.mut2, ...body }} className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 px-2 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+      <div style={{ color: C.mut2, ...label }} className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 px-2 text-[11px] mb-1.5">
         <span>Série</span><span className="text-center">Reps</span><span className="text-center">Peso (kg)</span><span />
       </div>
       <div className="space-y-1.5">
@@ -212,8 +343,8 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progressio
           // Sugestão: progressão sobre o último treino; sem histórico, a carga inicial do perfil.
           const sugg = suggestKg(last, progression) ?? (startKg != null ? startKg : null);
           return (
-            <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : C.bg2, border: `1px solid ${isDone ? C.mintDim : C.line}` }}
-              className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-xl px-2 py-1 transition-colors">
+            <div key={i} style={{ background: isDone ? "rgba(70,224,160,.12)" : "rgba(19,22,27,.55)", border: `1px solid ${isDone ? C.mintDim : "rgba(255,255,255,.05)"}` }}
+              className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_44px] gap-2 items-center rounded-2xl px-2 py-1 transition-colors">
               <span style={{ color: isDone ? C.mint : C.amber, ...display }} className="text-sm font-bold text-center">{i + 1}</span>
               <input value={row.reps ?? ""} onChange={(e) => onLog(i, "reps", e.target.value)} onBlur={() => onBlurCell?.(i, "reps")} inputMode="numeric"
                 placeholder={last?.reps ? String(last.reps) : repsHint(ex.reps)} aria-label={`Repetições da série ${i + 1}`}
@@ -266,32 +397,37 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
   const meta = progression?.enabled && best > 0 ? +(best + (num(progression.stepKg) || 0)).toFixed(2) : 0;
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${allDone ? C.mintDim : C.line}` }} className="rounded-3xl p-4">
-      <div className="flex gap-3 items-start">
-        <button onClick={() => onOpen("geral")} aria-label={`Ver detalhes de ${ex.name}`} className="shrink-0"><ExerciseMedia refId={ex.refId} body={ex.body} size={88} radius={16} tall /></button>
+    <div id={`ex-${idx}`} style={{ background: allDone ? "linear-gradient(180deg, rgba(70,224,160,.07), rgba(32,37,46,.6))" : "rgba(32,37,46,.6)", border: `1px solid ${allDone ? C.mintDim : "rgba(255,255,255,.06)"}` }} className="rounded-3xl p-3.5 scroll-mt-24">
+      <div className="flex gap-3.5 items-center">
+        <button onClick={() => onOpen("geral")} aria-label={`Ver detalhes de ${ex.name}`} className="shrink-0 relative">
+          <ExerciseMedia refId={ex.refId} body={ex.body} size={88} radius={18} />
+          {allDone && <span style={{ background: C.mint }} className="absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center"><Check size={14} color={C.bg} strokeWidth={3} /></span>}
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <EquipBadge equip={ex.equip} />
-            {best > 0 && <span style={{ background: "rgba(70,224,160,.12)", color: C.mint, border: `1px solid ${C.mintDim}`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><Trophy size={10} /> Último: {best}kg</span>}
-            {meta > 0 && <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, border: `1px solid rgba(255,138,61,.35)`, ...body }} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"><LineIcon size={10} /> Meta: {meta}kg</span>}
+            <span style={{ background: "rgba(255,138,61,.12)", color: C.amber, ...label }} className="rounded-md px-2 py-0.5 text-[10px]">{(EQUIP[ex.equip] || EQUIP.maquina).short}</span>
+            {best > 0 && <span style={{ background: "rgba(70,224,160,.12)", color: C.mint, ...label }} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px]"><Trophy size={10} /> Último {best}kg</span>}
+            {meta > 0 && <span style={{ background: "rgba(140,123,255,.14)", color: C.indigo, ...label }} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px]"><LineIcon size={10} /> Meta {meta}kg</span>}
           </div>
-          <div className="flex items-start justify-between gap-2">
-            <button onClick={() => onOpen("geral")} className="text-left"><h3 style={{ color: C.text, ...display }} className="font-bold leading-tight text-[17px] hover:underline decoration-1 underline-offset-2">{ex.name}</h3></button>
-            {allDone && <Check size={20} style={{ color: C.mint }} className="shrink-0" />}
-          </div>
-          <p style={{ color: C.hl, ...body }} className="text-xs font-semibold mt-0.5">{ex.muscle}</p>
-          <p style={{ color: C.mut, ...body }} className="text-xs mt-1 flex items-center gap-1">{ex.sets} séries · {ex.reps} reps · <Timer size={12} /> {ex.rest}s</p>
+          <button onClick={() => onOpen("geral")} className="text-left block"><h3 style={{ color: C.text, ...body }} className="font-semibold leading-snug text-[16px]">{ex.name}</h3></button>
+          <p style={{ color: C.mut, ...body }} className="text-[13px] mt-0.5">{ex.sets} séries • {ex.reps} reps{(best || startKg) ? ` • ${best || startKg} kg` : ""}</p>
+          <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-0.5 flex items-center gap-1 truncate"><span style={{ color: C.hl }}>{ex.muscle}</span> · <Timer size={11} /> {ex.rest}s</p>
         </div>
+        <OptionsMenu ariaLabel={`Opções de ${ex.name}`} items={[
+          { icon: Info, label: "Ver detalhes", onClick: () => onOpen("geral") },
+          { icon: Play, label: "Como fazer", onClick: () => onOpen("como") },
+          { icon: Replace, label: "Trocar exercício", hint: "Mesmo grupo muscular", onClick: () => onSwap(idx) },
+          ...equipsAvail.filter((eq) => eq !== ex.equip).map((eq) => ({ icon: EQUIP[eq].icon, label: `Fazer com ${EQUIP[eq].label.toLowerCase()}`, onClick: () => switchEquip(eq) })),
+        ]} />
       </div>
 
       {/* alternar peso livre / máquina */}
       {equipsAvail.length > 1 && (
-        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-          <span style={{ color: C.mut2, ...body }} className="text-[10px] uppercase tracking-wide mr-1">Fazer com:</span>
+        <div className="flex items-center gap-1.5 mt-3 overflow-x-auto overscroll-x-contain no-scrollbar">
           {equipsAvail.map((eq) => {
             const on = ex.equip === eq;
-            const E = EQUIP[eq]; const Icon = E.icon;
-            return <button key={eq} onClick={() => switchEquip(eq)} style={{ background: on ? C.amber : C.bg2, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.amber : C.line}`, ...body }} className="rounded-lg px-2 py-1 text-[11px] font-semibold flex items-center gap-1"><Icon size={12} />{E.short}</button>;
+            const E = EQUIP[eq];
+            return <Chip key={eq} on={on} icon={E.icon} onClick={() => switchEquip(eq)}>{E.short}</Chip>;
           })}
         </div>
       )}
@@ -299,11 +435,6 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
       <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} startKg={startKg} />
 
       {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
-
-      <div className="flex gap-2 mt-3">
-        <button onClick={() => onOpen("como")} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}` }} className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1"><Info size={14} /> Como fazer</button>
-        <button onClick={() => onSwap(idx)} style={{ background: C.bg2, color: C.amberSoft, border: `1px solid ${C.line}` }} className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1"><Replace size={14} /> Trocar</button>
-      </div>
     </div>
   );
 }
@@ -331,7 +462,7 @@ function sessionVolume(day, session) {
   }, 0);
 }
 
-function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, onComplete }) {
+function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, onComplete, goPlan, goCoach, goProgress }) {
   const [detail, setDetail] = useState(null); // { item, idx, tab }
   const [swapFor, setSwapFor] = useState(null);
   const dayIdx = plan.cycleIndex % plan.days.length;
@@ -389,27 +520,76 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
     setSwapFor(null);
   };
 
+  const hasProgress = doneSets > 0;
+  const switchDay = (di) => {
+    if (di === dayIdx) return;
+    if (hasProgress && !window.confirm("Você já marcou séries no treino de hoje. Trocar de treino apaga esse progresso. Continuar?")) return;
+    setPlan((p) => ({ ...p, cycleIndex: di }));
+    setSession({ sets: {} });
+  };
+  const startWorkout = () => {
+    setSession((s) => ({ ...s, startedAt: s.startedAt || Date.now() }));
+    document.getElementById("ex-0")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const st = dayStats(day);
+  const equipCount = day.exercises.reduce((m, e) => ({ ...m, [e.equip]: (m[e.equip] || 0) + 1 }), {});
+  const mainEquip = Object.entries(equipCount).sort((a, b) => b[1] - a[1])[0]?.[0];
+
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
+      <ScreenHeader title="Hoje" sub={`Treino ${day.id} · ${day.name}`}>
+        <IconBtn icon={SlidersHorizontal} label="Montar / personalizar plano" onClick={goPlan} />
+        <OptionsMenu items={[
+          { icon: Play, label: session.startedAt ? "Continuar treino" : "Iniciar treino", onClick: startWorkout },
+          { icon: Calendar, label: "Ver plano completo", onClick: goPlan, chevron: true },
+          { icon: Sparkles, label: "Sugerir um novo treino", hint: "Peça ao coach de IA", onClick: goCoach },
+          { icon: Scale, label: "Registrar peso", onClick: goProgress },
+        ]} />
+      </ScreenHeader>
+
       <InstallBanner C={C} body={body} />
 
-      <div style={{ background: `radial-gradient(120% 140% at 100% 0%, rgba(255,138,61,.18) 0%, ${C.card} 45%, ${C.bg2} 100%)`, border: `1px solid ${C.line}` }} className="rounded-3xl p-5 mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p style={{ color: C.amber, ...body }} className="text-xs font-bold uppercase tracking-widest">Treino {day.id} · Hoje</p>
-            <h2 style={{ color: C.text, ...display }} className="text-2xl lg:text-3xl font-bold mt-0.5 truncate">{day.name}</h2>
-            <p style={{ color: C.mut, ...body }} className="text-xs mt-1">{day.exercises.length} exercícios · {totalSets} séries</p>
-          </div>
-          <ProgressRing pct={pct} />
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
+      {/* Seletor de dias do ciclo (A, B, C…) */}
+      <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1 -mx-1 px-1">
+        {plan.days.map((d, di) => {
+          const on = di === dayIdx;
+          const past = di < dayIdx;
+          return (
+            <button key={d.id} onClick={() => switchDay(di)} aria-label={`Treino ${d.id}: ${d.name}`}
+              style={{ background: on ? C.card2 : "transparent", color: on ? C.text : past ? C.amber : C.mut, boxShadow: on ? "inset 0 0 0 1px rgba(255,255,255,.08)" : "none", ...label }}
+              className={`shrink-0 h-11 rounded-full flex items-center justify-center text-[14px] ${on ? "px-4" : "w-11"}`}>
+              {past ? <Check size={18} strokeWidth={3} /> : on ? `Treino ${d.id}` : d.id}
+            </button>
+          );
+        })}
+        <button onClick={goPlan} aria-label="Ver ciclo de treinos" style={{ color: C.mut }} className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RotateCcw size={17} /></button>
+      </div>
+
+      {/* Chips de resumo */}
+      <div className="flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar mt-3 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <Chip icon={Target}>{st.muscles.length} músculo{st.muscles.length === 1 ? "" : "s"}</Chip>
+        <Chip icon={Timer}>~{st.minutes} min</Chip>
+        {mainEquip && <Chip icon={(EQUIP[mainEquip] || EQUIP.maquina).icon}>{(EQUIP[mainEquip] || EQUIP.maquina).label}</Chip>}
+      </div>
+
+      {/* Placar do treino */}
+      <div style={{ background: `radial-gradient(130% 160% at 100% 0%, rgba(255,138,61,.16) 0%, rgba(32,37,46,.7) 50%)`, border: "1px solid rgba(255,255,255,.06)" }} className="rounded-3xl p-4 mt-4 flex items-center gap-4">
+        <ProgressRing pct={pct} size={60} />
+        <div className="flex-1 grid grid-cols-3 gap-2">
           <HeroStat icon={Timer} label="Duração" value={elapsed} live={!!session.startedAt && !allDone} />
           <HeroStat icon={Check} label="Séries" value={`${doneSets}/${totalSets}`} />
-          <HeroStat icon={Dumbbell} label="Volume (kg)" value={volume.toLocaleString("pt-BR")} />
+          <HeroStat icon={Dumbbell} label="Volume kg" value={volume.toLocaleString("pt-BR")} />
         </div>
       </div>
 
       <DayMuscles day={day} />
+
+      <SectionLabel right={<OptionsMenu ariaLabel="Opções da lista" items={[
+        { icon: Calendar, label: "Trocar treino do dia", onClick: goPlan },
+        { icon: Sparkles, label: "Pedir ajuste ao coach", onClick: goCoach },
+      ]} trigger={(t) => <button onClick={t} aria-label="Opções da lista" style={GLASS} className="w-9 h-9 rounded-full flex items-center justify-center"><MoreHorizontal size={18} color={C.text} /></button>} />}>
+        {day.exercises.length} exercícios
+      </SectionLabel>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 items-start">
         {day.exercises.map((ex, i) => (
@@ -425,13 +605,26 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
         ))}
       </div>
 
-      <div className="sticky bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-4 mt-4 z-30">
-        <button onClick={onComplete} disabled={!allDone}
-          style={{ background: allDone ? `linear-gradient(90deg, ${C.mint}, #7CF5B8)` : C.card, color: allDone ? C.bg : C.mut2, border: `1px solid ${allDone ? C.mint : C.line}`, boxShadow: allDone ? "0 10px 30px rgba(70,224,160,.25)" : "none", ...display }}
-          className="w-full rounded-full py-4 font-bold text-base uppercase tracking-wider flex items-center justify-center gap-2 lg:max-w-md lg:mx-auto">
-          <Trophy size={20} /> {allDone ? "Finalizar treino" : `Faltam ${totalSets - doneSets} séries`}
-        </button>
+      {/* Ações rápidas (linhas com ícone e seta) */}
+      <div className="mt-5 divide-y divide-[#2A313C]" style={{ borderTop: `1px solid #2A313C`, borderBottom: `1px solid #2A313C` }}>
+        {[
+          { icon: Replace, t: "Trocar treino do dia", fn: goPlan },
+          { icon: Sparkles, t: "Pedir um treino ao coach", fn: goCoach },
+          { icon: Scale, t: "Registrar peso", fn: goProgress },
+        ].map((r) => (
+          <button key={r.t} onClick={r.fn} className="w-full flex items-center gap-3 py-3.5 text-left active:bg-white/5 hover:bg-white/5">
+            <span style={{ background: C.card, color: C.mut }} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"><r.icon size={16} /></span>
+            <span style={{ color: C.text, ...label }} className="flex-1 text-[14px]">{r.t}</span>
+            <ChevronRight size={17} style={{ color: C.mut2 }} />
+          </button>
+        ))}
       </div>
+
+      {allDone
+        ? <FloatingCTA tone="mint" icon={Trophy} onClick={onComplete}>Finalizar treino</FloatingCTA>
+        : !session.startedAt
+          ? <FloatingCTA icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
+          : <FloatingCTA icon={Timer} disabled>Faltam {totalSets - doneSets} séries</FloatingCTA>}
 
       {detail && (
         <ExerciseDetail item={detail.item} startTab={detail.tab} prevLoads={tracking.lastLoads}
@@ -463,13 +656,13 @@ function ProgressRing({ pct, size = 64 }) {
   );
 }
 
-function HeroStat({ icon: Icon, label, value, live }) {
+function HeroStat({ icon: Icon, label: text, value, live }) {
   return (
-    <div style={{ background: "rgba(19,22,27,.55)", border: `1px solid ${C.line}` }} className="rounded-2xl px-3 py-2.5">
-      <p style={{ color: C.text, ...display }} className="text-lg font-bold tabular-nums leading-none flex items-center gap-1.5">
-        {live && <span style={{ background: C.mint }} className="w-2 h-2 rounded-full an-pulse" />}{value}
+    <div className="min-w-0">
+      <p style={{ color: C.text, ...display }} className="text-lg font-bold tabular-nums leading-none flex items-center gap-1.5 truncate">
+        {live && <span style={{ background: C.mint }} className="w-2 h-2 rounded-full an-pulse shrink-0" />}{value}
       </p>
-      <p style={{ color: C.mut2, ...body }} className="text-[10px] mt-1 flex items-center gap-1 uppercase tracking-wide"><Icon size={11} /> {label}</p>
+      <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-1 flex items-center gap-1 truncate"><Icon size={11} className="shrink-0" /> {text}</p>
     </div>
   );
 }
@@ -480,9 +673,9 @@ function HeroStat({ icon: Icon, label, value, live }) {
    seu progresso, equipamento e exercícios similares. */
 const GROUP_LABEL = { peito: "Peito", costas: "Costas", pernas: "Pernas", gluteo: "Glúteos", ombro: "Ombros", biceps: "Bíceps", triceps: "Tríceps", core: "Core", cardio: "Cardio" };
 
-function MuscleThumb({ slug, size = 56, main = true }) {
+function MuscleThumb({ slug, size = 56, main = true, bare = false }) {
   return (
-    <div style={{ width: size, height: size, background: `radial-gradient(circle at 50% 45%, ${C.card2} 0%, ${C.bg} 85%)`, border: `1px solid ${C.line}` }}
+    <div style={{ width: size, height: size, background: bare ? "transparent" : `radial-gradient(circle at 50% 45%, ${C.card2} 0%, ${C.bg} 85%)`, border: bare ? "none" : `1px solid ${C.line}` }}
       className="rounded-xl shrink-0 overflow-hidden flex items-center justify-center">
       <BodyMap body={{ side: sideOf(slug) }} highlight={main ? { main: [slug], sec: [] } : { main: [], sec: [slug] }} crop={[slug]} height={size} glow={false} />
     </div>
@@ -492,7 +685,7 @@ function MuscleThumb({ slug, size = 56, main = true }) {
 function SectionTitle({ children, right }) {
   return (
     <div className="flex items-center justify-between mt-6 mb-2.5">
-      <p style={{ color: C.mut, ...body }} className="text-[11px] font-bold uppercase tracking-widest">{children}</p>
+      <p style={{ color: C.text, ...label }} className="text-[13px]">{children}</p>
       {right}
     </div>
   );
@@ -541,12 +734,7 @@ function ExerciseDetail({ item, startTab = "geral", prevLoads, canUseToday, onUs
           </div>
           <h2 style={{ color: C.text, ...display }} className="text-[26px] leading-tight font-bold">{lib.name}</h2>
 
-          <div style={{ background: C.bg, border: `1px solid ${C.line}` }} className="grid grid-cols-2 rounded-full p-1 mt-4">
-            {[["geral", "Visão geral"], ["como", "Como fazer"]].map(([k, l]) => (
-              <button key={k} onClick={() => setTab(k)} style={{ background: tab === k ? C.card2 : "transparent", color: tab === k ? C.text : C.mut, ...body }}
-                className="rounded-full py-2 text-xs font-bold uppercase tracking-wide">{l}</button>
-            ))}
-          </div>
+          <div className="mt-4"><Segmented options={[["geral", "Visão geral"], ["como", "Como fazer"]]} value={tab} onChange={setTab} /></div>
 
           {tab === "geral" ? (
             <>
@@ -639,13 +827,13 @@ function DayMuscles({ day }) {
   day.exercises.forEach((e) => musclesOf(e.body).main.forEach((s) => { if (!slugs.includes(s)) slugs.push(s); }));
   if (!slugs.length) return null;
   return (
-    <div className="mb-4">
-      <p style={{ color: C.mut, ...body }} className="text-[11px] font-bold uppercase tracking-widest mb-2">Músculos trabalhados</p>
-      <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
+    <div>
+      <SectionLabel>Músculos trabalhados</SectionLabel>
+      <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain no-scrollbar pb-1 -mx-4 px-4 lg:mx-0 lg:px-0">
         {slugs.map((s) => (
-          <div key={s} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-1.5 pr-3 flex items-center gap-2 shrink-0">
-            <MuscleThumb slug={s} size={44} />
-            <span style={{ color: C.text, ...body }} className="text-xs font-semibold">{MUSCLE_NAMES[s]}</span>
+          <div key={s} style={{ background: "rgba(32,37,46,.7)", border: "1px solid rgba(255,255,255,.06)" }} className="w-[84px] rounded-2xl pt-2 pb-2 flex flex-col items-center gap-1.5 shrink-0">
+            <MuscleThumb slug={s} size={52} bare />
+            <span style={{ color: C.mut, ...body }} className="text-[11px] font-medium text-center leading-tight px-1 truncate w-full">{MUSCLE_NAMES[s]}</span>
           </div>
         ))}
       </div>
@@ -671,16 +859,15 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
 
   return (
     <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
-      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="w-full max-w-[480px] lg:max-w-[560px] rounded-t-3xl lg:rounded-3xl p-5 max-h-[88vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-1">
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="w-full max-w-[480px] lg:max-w-[560px] rounded-t-[28px] lg:rounded-3xl px-5 pb-5 pt-2.5 max-h-[88vh] overflow-y-auto an-sheet">
+        <div style={{ background: C.line }} className="w-10 h-1 rounded-full mx-auto mb-3 lg:hidden" />
+        <div className="relative flex items-center justify-center mb-1">
           <h3 style={{ color: C.text, ...display }} className="text-lg font-bold">Trocar exercício</h3>
-          <button onClick={onClose} style={{ color: C.mut }}><X size={20} /></button>
+          <button onClick={onClose} aria-label="Fechar" style={{ color: C.mut, background: C.card }} className="absolute right-0 w-8 h-8 rounded-full flex items-center justify-center"><X size={17} /></button>
         </div>
-        <p style={{ color: C.mut, ...body }} className="text-xs mb-3">Mesmo grupo: <b style={{ color: C.hl }}>{ex.muscle}</b></p>
+        <p style={{ color: C.mut, ...body }} className="text-xs mb-4 text-center">Mesmo grupo: <b style={{ color: C.hl }}>{ex.muscle}</b></p>
 
-        <div className="flex gap-1.5 mb-3 flex-wrap">
-          {filters.map(([v, l]) => <button key={v} onClick={() => setFilter(v)} style={{ background: filter === v ? C.amber : C.card, color: filter === v ? C.bg : C.mut, border: `1px solid ${filter === v ? C.amber : C.line}`, ...body }} className="rounded-lg px-3 py-1.5 text-xs font-semibold">{l}</button>)}
-        </div>
+        <div className="mb-3"><Segmented size="sm" options={filters} value={filter} onChange={setFilter} /></div>
 
         <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-3 mb-3">
           <p style={{ color: C.text, ...body }} className="text-xs mb-2">Tem alguma limitação? (opcional)</p>
@@ -689,13 +876,13 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
           {aiText && <p style={{ color: C.text, ...body }} className="text-xs leading-relaxed mt-2 whitespace-pre-wrap">{aiText}</p>}
         </div>
 
-        <div className="space-y-2">
+        <div className="divide-y divide-[#2A313C]">
           {alts.map((a) => (
-            <button key={a.id} onClick={() => onPick(a)} style={{ background: C.card, border: `1px solid ${C.line}` }} className="w-full rounded-2xl p-3 flex items-center gap-3 text-left">
-              <ExerciseMedia refId={a.id} body={a.body} size={56} radius={12} />
+            <button key={a.id} onClick={() => onPick(a)} className="w-full py-3 flex items-center gap-3.5 text-left active:bg-white/5 hover:bg-white/5">
+              <ExerciseMedia refId={a.id} body={a.body} size={56} radius={14} />
               <div className="flex-1 min-w-0">
-                <p style={{ color: C.text, ...display }} className="font-bold text-sm leading-tight">{a.name}</p>
-                <div className="mt-1"><EquipBadge equip={a.equip} /></div>
+                <p style={{ color: C.text, ...body }} className="font-semibold text-[15px] leading-snug">{a.name}</p>
+                <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5">{(EQUIP[a.equip] || EQUIP.maquina).label}</p>
               </div>
               <ChevronRight size={18} style={{ color: C.mut2 }} />
             </button>
@@ -749,73 +936,79 @@ function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConf
 
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Seu plano</h2>
-          <p style={{ color: C.mut, ...body }} className="text-sm mt-1 leading-relaxed">
-            <b style={{ color: C.text }}>{plan.days.length} treino{plan.days.length > 1 ? "s" : ""}</b> em ciclo: {order} → {plan.days[0]?.id}… Ao finalizar um, o próximo vira o de <b style={{ color: C.text }}>Hoje</b>.
-            {plan.daysPerWeek ? ` Meta de ${plan.daysPerWeek}×/semana (~${Math.round(plan.daysPerWeek * 4)} treinos/mês).` : ""} Quer treinar outro? Escolha abaixo.
-          </p>
-        </div>
-        <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="shrink-0 rounded-full px-3 py-2.5 text-sm font-bold flex items-center gap-1.5">
-          <Pencil size={15} /> <span className="hidden sm:inline">Montar / Personalizar</span><span className="sm:hidden">Montar</span>
-        </button>
-      </div>
+      <ScreenHeader title="Plano" sub={`${plan.days.length} treino${plan.days.length > 1 ? "s" : ""} em ciclo · ${order} → ${plan.days[0]?.id}`}>
+        <IconBtn icon={SlidersHorizontal} label="Montar / personalizar" onClick={() => setEditing(true)} />
+        <OptionsMenu items={[
+          { icon: Pencil, label: "Editar treinos", hint: "Escolher grupos de cada dia", onClick: () => setEditing(true) },
+          { icon: Sparkles, label: "Montar com IA", hint: "O coach pergunta suas preferências", onClick: () => setEditing(true) },
+          { icon: Play, label: "Ir para o treino de hoje", onClick: goToday },
+        ]} />
+      </ScreenHeader>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 items-start mt-4">
+      <SectionLabel className="!mt-2">Personalização</SectionLabel>
+      <div className="grid grid-cols-2 gap-3 lg:max-w-xl">
+        {[
+          { icon: Plus, t: "Montar / personalizar o plano", fn: () => setEditing(true) },
+          { icon: Sparkles, t: "Gerar plano com IA", fn: () => setEditing(true) },
+        ].map((b) => (
+          <button key={b.t} onClick={b.fn} style={{ background: "rgba(32,37,46,.7)", border: "1px solid rgba(255,255,255,.06)" }} className="rounded-3xl p-4 h-[124px] flex flex-col justify-between text-left active:bg-white/5 hover:bg-white/5">
+            <span style={{ background: C.card2, color: C.text }} className="w-10 h-10 rounded-full flex items-center justify-center"><b.icon size={18} /></span>
+            <span style={{ color: C.text, ...body }} className="text-sm font-medium leading-snug">{b.t}</span>
+          </button>
+        ))}
+      </div>
+      <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-relaxed">
+        Ao finalizar um treino, o próximo do ciclo vira o de <b style={{ color: C.text }}>Hoje</b>.
+        {plan.daysPerWeek ? ` Meta de ${plan.daysPerWeek}×/semana (~${Math.round(plan.daysPerWeek * 4)} treinos/mês).` : ""}{" "}
+        {plan.source === "ai" ? "Plano atual feito pela IA." : plan.source === "custom" ? "Plano atual montado por você." : "Plano atual: modelo base."}
+      </p>
+
+      <SectionLabel>Seus treinos</SectionLabel>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 items-start">
         {plan.days.map((d, di) => {
           const isNext = di === nextIdx;
           const st = dayStats(d);
           return (
-            <div key={d.id} style={{ background: C.card, border: `1px solid ${isNext ? C.amber : C.line}` }} className="rounded-3xl p-4 min-w-0">
+            <div key={d.id} style={{ background: isNext ? `radial-gradient(140% 90% at 100% 0%, rgba(255,138,61,.16) 0%, rgba(32,37,46,.75) 55%)` : "rgba(32,37,46,.6)", border: `1px solid ${isNext ? "rgba(255,138,61,.45)" : "rgba(255,255,255,.06)"}` }} className="rounded-3xl p-4 min-w-0">
               <div className="flex items-start gap-3">
-                <span style={{ background: isNext ? C.amber : C.bg2, color: isNext ? C.bg : C.mut, ...display }} className="rounded-xl w-9 h-9 shrink-0 flex items-center justify-center font-bold">{d.id}</span>
+                <span style={{ background: isNext ? CTA_BG : C.card2, color: isNext ? C.bg : C.mut, ...display }} className="rounded-2xl w-11 h-11 shrink-0 flex items-center justify-center font-bold text-lg">{d.id}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight truncate">{d.name}</h3>
-                    {isNext && <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, ...body }} className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase">Hoje</span>}
-                  </div>
-                  <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5">{d.exercises.length} exercícios · {st.sets} séries · ~{st.minutes} min</p>
+                  {isNext && <span style={{ color: C.amber, ...label }} className="text-[11px]">Treino de hoje</span>}
+                  <h3 style={{ color: C.text, ...display }} className="font-bold leading-tight truncate text-[17px]">{d.name}</h3>
+                  <p style={{ color: C.mut, ...body }} className="text-xs mt-0.5">{d.exercises.length} exercícios • {st.sets} séries • ~{st.minutes} min</p>
                 </div>
               </div>
 
-              <div className="flex gap-1.5 flex-wrap mt-3">
-                {st.muscles.slice(0, 5).map((s) => (
-                  <span key={s} style={{ background: C.bg2, color: C.mut, border: `1px solid ${C.line}`, ...body }} className="rounded-full pl-0.5 pr-2 py-0.5 text-[11px] font-semibold flex items-center gap-1">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-3">
+                {st.muscles.slice(0, 6).map((s) => (
+                  <span key={s} style={{ background: C.bg2, color: C.mut, ...body }} className="shrink-0 rounded-full pl-0.5 pr-2.5 py-0.5 text-[11px] font-medium flex items-center gap-1">
                     <span className="rounded-full overflow-hidden"><MuscleThumb slug={s} size={20} /></span>{MUSCLE_NAMES[s]}
                   </span>
                 ))}
               </div>
 
-              <div className="mt-3 space-y-1">
+              <div className="mt-2 divide-y divide-[#2A313C]">
                 {d.exercises.map((e, i) => (
-                  <button key={i} onClick={() => setDetail(e)} className="w-full min-w-0 flex items-center gap-2.5 text-left rounded-xl p-1 active:bg-white/5 hover:bg-white/5">
-                    <ExerciseMedia refId={e.refId} body={e.body} size={40} radius={10} badge={false} />
-                    <span style={{ color: C.text, ...body }} className="text-sm flex-1 min-w-0 truncate">{e.name}</span>
-                    <span style={{ color: C.mut, ...body }} className="text-xs shrink-0">{e.sets}×{e.reps}</span>
+                  <button key={i} onClick={() => setDetail(e)} className="w-full min-w-0 flex items-center gap-3 text-left py-2 active:bg-white/5 hover:bg-white/5">
+                    <ExerciseMedia refId={e.refId} body={e.body} size={44} radius={12} badge={false} />
+                    <span className="flex-1 min-w-0">
+                      <span style={{ color: C.text, ...body }} className="block text-sm font-medium truncate">{e.name}</span>
+                      <span style={{ color: C.mut2, ...body }} className="block text-xs">{e.sets} séries • {e.reps} reps</span>
+                    </span>
                     <ChevronRight size={16} style={{ color: C.mut2 }} className="shrink-0" />
                   </button>
                 ))}
               </div>
 
               <button onClick={() => doToday(di)}
-                style={{ background: isNext ? C.amber : C.bg2, color: isNext ? C.bg : C.text, border: `1px solid ${isNext ? C.amber : C.line}`, ...display }}
-                className="w-full rounded-full py-3 mt-3 font-bold text-sm flex items-center justify-center gap-2">
-                <Play size={16} /> {isNext ? "Ir para o treino de hoje" : "Fazer este treino hoje"}
+                style={{ background: isNext ? CTA_BG : C.card2, color: isNext ? C.bg : C.text, ...label }}
+                className="w-full rounded-full py-3 mt-3 text-[15px] flex items-center justify-center gap-2">
+                <Play size={16} /> {isNext ? "Ir para o treino" : "Fazer este hoje"}
               </button>
             </div>
           );
         })}
       </div>
-
-      <button onClick={() => setEditing(true)} style={{ background: C.card, border: `1px solid ${C.line}` }} className="w-full text-left rounded-3xl p-4 mt-4 flex items-center gap-3 active:bg-white/5 hover:bg-white/5">
-        <div style={{ background: C.indigo }} className="rounded-xl w-10 h-10 shrink-0 flex items-center justify-center"><Wand2 size={18} color="#fff" /></div>
-        <div className="flex-1 min-w-0">
-          <p style={{ color: C.text, ...body }} className="text-sm font-semibold">Montar / personalizar o plano</p>
-          <p style={{ color: C.mut2, ...body }} className="text-xs leading-snug">Escolha o que quer treinar em cada dia (só perna, braço, abdômen…) e gere com ou sem IA. {plan.source === "ai" ? "O plano atual foi feito pela IA." : plan.source === "custom" ? "O plano atual foi montado por você." : "Hoje você usa o modelo base."}</p>
-        </div>
-        <ChevronRight size={18} style={{ color: C.mut2 }} className="shrink-0" />
-      </button>
 
       {detail && <ExerciseDetail item={detail} prevLoads={tracking?.lastLoads} onClose={() => setDetail(null)} onOpenItem={(li) => setDetail(li)} />}
     </div>
@@ -867,10 +1060,9 @@ function PlanBuilder({ profile, initialConfig, initialPerWeek, aiBusy, onCancel,
 
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
-      <div className="flex items-center justify-between gap-3">
-        <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold">Montar seu plano</h2>
-        <button onClick={onCancel} style={{ color: C.mut, ...body }} className="shrink-0 rounded-full px-3 py-2 text-sm font-semibold flex items-center gap-1"><X size={16} /> Cancelar</button>
-      </div>
+      <ScreenHeader title="Montar plano" sub="Escolha os grupos de cada treino">
+        <IconBtn icon={X} label="Cancelar" onClick={onCancel} />
+      </ScreenHeader>
 
       {/* Como funciona + frequência semanal (deixa claro dia / semana / mês) */}
       <div style={{ background: `radial-gradient(120% 140% at 0% 0%, rgba(140,123,255,.15) 0%, ${C.card} 50%)`, border: `1px solid ${C.line}` }} className="rounded-3xl p-4 mt-3">
@@ -1011,20 +1203,65 @@ function ProgressScreen({ profile, tracking, addWeight }) {
   const bestVol = vol.reduce((m, v) => Math.max(m, v.volume), 0);
   const totalVol = vol.reduce((a, v) => a + v.volume, 0);
   const submit = () => { const n = parseFloat(String(val).replace(",", ".")); if (!n || n < 25 || n > 350) return; addWeight(n); setVal(""); };
+  const weightRef = useRef(null);
+  // Semana atual (domingo → sábado) com os treinos feitos em cada dia.
+  const now = new Date();
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now); d.setDate(now.getDate() - now.getDay() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const items = (tracking.history || []).filter((h) => h.date === key);
+    const mins = items.reduce((a, h) => a + (h.minutes || 0), 0);
+    return { key, day: d.getDate(), dow: ["Do", "Se", "Te", "Qu", "Qu", "Se", "Sá"][i], done: items.length > 0, mins, isToday: key === today() };
+  });
+  const weekCount = week.filter((w) => w.done).length;
+  const weekMins = week.reduce((a, w) => a + w.mins, 0);
+  const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}min` : `${m}min`;
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
-      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Sua evolução</h2>
-      <div className="grid grid-cols-3 gap-2 mb-3 lg:max-w-2xl">
-        <Stat label="Peso atual" value={last != null ? `${last}kg` : "—"} color={C.text} />
-        <Stat label="Variação" value={`${diff > 0 ? "+" : ""}${diff}kg`} color={diff <= 0 ? C.mint : C.amber} />
-        <Stat label="Treinos feitos" value={tracking.history.length} color={C.amber} />
+      <ScreenHeader title="Evolução" sub={`${week[0].day}/${String(new Date(week[0].key + "T00:00").getMonth() + 1).padStart(2, "0")} – ${week[6].day}/${String(new Date(week[6].key + "T00:00").getMonth() + 1).padStart(2, "0")}`}>
+        <IconBtn icon={Scale} label="Registrar peso" onClick={() => { weightRef.current?.focus(); weightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }} />
+      </ScreenHeader>
+
+      {/* Semana: anel em volta dos dias treinados */}
+      <div className="grid grid-cols-7 gap-1 lg:max-w-2xl">
+        {week.map((w) => (
+          <div key={w.key} className="flex flex-col items-center gap-1.5">
+            <span style={{ color: C.mut2, ...label }} className="text-[11px]">{w.dow}</span>
+            <span style={{ color: w.done ? C.text : C.mut, border: `2px solid ${w.done ? C.amber : w.isToday ? C.line : "rgba(255,255,255,.06)"}`, background: w.isToday ? C.card2 : "transparent", boxShadow: w.done ? "0 0 14px rgba(255,138,61,.25)" : "none", ...display }}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold">{w.day}</span>
+            <span style={{ color: C.mut2, ...body }} className="text-[10px] h-3 leading-3">{w.mins ? fmtMin(w.mins) : ""}</span>
+          </div>
+        ))}
       </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-4 lg:max-w-2xl">
+        {[
+          { v: tracking.history.length, t: "Total de treinos", icon: Dumbbell, c: C.amber },
+          { v: weekCount, t: "Treinos nesta semana", icon: Flame, c: C.amber },
+          { v: last != null ? `${last}kg` : "—", t: "Peso atual", icon: Scale, c: C.mint },
+          { v: `${diff > 0 ? "+" : ""}${diff}kg`, t: "Variação de peso", icon: LineIcon, c: diff <= 0 ? C.mint : C.amber },
+        ].map((s) => (
+          <div key={s.t} style={{ background: "rgba(32,37,46,.7)", border: "1px solid rgba(255,255,255,.06)" }} className="rounded-3xl p-4 relative">
+            <span style={{ background: C.bg2, color: s.c }} className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"><s.icon size={16} /></span>
+            <p style={{ color: C.text, ...display }} className="text-2xl font-bold leading-none mt-1">{s.v}</p>
+            <p style={{ color: C.mut, ...body }} className="text-xs mt-2">{s.t}</p>
+          </div>
+        ))}
+      </div>
+
+      <SectionLabel>Progresso semanal</SectionLabel>
+      <div style={{ background: "rgba(32,37,46,.7)", border: "1px solid rgba(255,255,255,.06)" }} className="rounded-3xl p-4 flex gap-8 mb-3 lg:max-w-2xl">
+        <div><p style={{ color: C.text, ...display }} className="text-2xl font-bold leading-none">{weekMins ? fmtMin(weekMins) : "—"}</p><p style={{ color: C.mut2, ...body }} className="text-xs mt-1.5">Total esta semana</p></div>
+        <div><p style={{ color: C.text, ...display }} className="text-2xl font-bold leading-none">{weekCount ? fmtMin(Math.round(weekMins / weekCount)) : "—"}</p><p style={{ color: C.mut2, ...body }} className="text-xs mt-1.5">Média por treino</p></div>
+      </div>
+
+      <SectionLabel>Peso corporal</SectionLabel>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(280px,1fr)_2fr] items-start">
       <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
         <p style={{ color: C.text, ...body }} className="text-sm font-semibold mb-2 flex items-center gap-1"><Scale size={16} style={{ color: C.amber }} /> Registrar peso de hoje</p>
         <div className="flex gap-2">
-          <input value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="ex.: 82.5" style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 min-w-0 rounded-xl px-3 py-2.5 outline-none" />
-          <button onClick={submit} style={{ background: C.amber, color: C.bg, ...display }} className="rounded-xl px-5 font-bold flex items-center gap-1"><Plus size={18} /> Salvar</button>
+          <input ref={weightRef} value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} inputMode="decimal" placeholder="ex.: 82.5" style={{ background: C.bg, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 min-w-0 rounded-full px-4 py-2.5 outline-none" />
+          <button onClick={submit} style={{ background: CTA_BG, color: C.bg, ...label }} className="rounded-full px-5 text-[15px] flex items-center gap-1"><Plus size={18} /> Salvar</button>
         </div>
         <p style={{ color: C.mut2, ...body }} className="text-xs mt-2">Diário, semanal ou mensal — o gráfico monta sozinho. Medidas corporais merecem acompanhamento à parte (a cada 2–4 semanas).</p>
       </div>
@@ -1099,15 +1336,16 @@ function CoachScreen({ profile, plan, chat, setChat, onApplyPlan }) {
   const presets = ["Monte um treino de 40 min focado em abdômen", "Como melhorar minha técnica no agachamento?", "Estou com dor no ombro, troca meu treino de hoje"];
   return (
     <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-24 flex flex-col lg:max-w-3xl" style={{ minHeight: "70vh" }}>
-      <div className="flex items-center gap-2 mb-3">
-        <div style={{ background: C.indigo }} className="rounded-xl w-9 h-9 flex items-center justify-center"><Sparkles size={18} color="#fff" /></div>
-        <div><h2 style={{ color: C.text, ...display }} className="text-lg font-bold leading-none">Coach IA</h2><p style={{ color: C.mut, ...body }} className="text-xs">Dúvidas de treino, técnica e alimentação</p></div>
-      </div>
+      <ScreenHeader title="Coach" sub="Treino, técnica e alimentação">
+        <OptionsMenu items={[
+          { icon: RotateCcw, label: "Nova conversa", onClick: () => setChat([]) },
+        ]} />
+      </ScreenHeader>
       <div className="flex-1 space-y-3">
         {chat.length === 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4">
             <p style={{ color: C.text, ...body }} className="text-sm leading-relaxed">Olá! Sou seu coach. Posso ajudar com execução de exercícios, ajustes no treino e alimentação geral.</p>
-            <div className="space-y-2 mt-3">{presets.map((p) => <button key={p} onClick={() => send(p)} style={{ background: C.bg2, color: C.amberSoft, border: `1px solid ${C.line}`, ...body }} className="w-full text-left rounded-xl px-3 py-2 text-sm">{p}</button>)}</div>
+            <div className="mt-3 divide-y divide-[#2A313C]">{presets.map((p) => <button key={p} onClick={() => send(p)} style={{ color: C.text, ...body }} className="w-full text-left py-3 text-sm flex items-center gap-3 active:bg-white/5 hover:bg-white/5"><Sparkles size={15} style={{ color: C.amber }} className="shrink-0" /><span className="flex-1">{p}</span><ChevronRight size={16} style={{ color: C.mut2 }} /></button>)}</div>
           </div>
         )}
         {chat.map((m, i) => {
@@ -1129,10 +1367,10 @@ function CoachScreen({ profile, plan, chat, setChat, onApplyPlan }) {
         {busy && <div className="flex justify-start"><div style={{ background: C.card, border: `1px solid ${C.line}`, color: C.mut }} className="rounded-2xl px-4 py-2.5 text-sm flex items-center gap-2"><Loader2 size={14} className="an-spin" /> digitando...</div></div>}
         <div ref={endRef} />
       </div>
-      <div style={{ background: C.bg }} className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 px-4 lg:px-8 pb-2 lg:pb-5 pt-2 z-30">
-        <div className="mx-auto lg:mx-0 max-w-[480px] md:max-w-[720px] lg:max-w-3xl flex gap-2">
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Escreva sua dúvida..." style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="flex-1 rounded-xl px-4 py-3 outline-none text-sm" />
-          <button onClick={() => send()} disabled={busy} style={{ background: C.indigo }} className="rounded-xl w-12 flex items-center justify-center"><Send size={18} color="#fff" /></button>
+      <div style={{ background: `linear-gradient(0deg, ${C.bg} 70%, transparent)` }} className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 px-4 lg:px-8 pb-2 lg:pb-5 pt-4 z-30">
+        <div style={GLASS} className="mx-auto lg:mx-0 max-w-[480px] md:max-w-[720px] lg:max-w-3xl flex items-center gap-2 rounded-full p-1.5 pl-4">
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Escreva sua dúvida..." style={{ color: C.text, ...body }} className="flex-1 min-w-0 bg-transparent py-2 outline-none text-sm" />
+          <button onClick={() => send()} disabled={busy} aria-label="Enviar" style={{ background: CTA_BG }} className="rounded-full w-10 h-10 shrink-0 flex items-center justify-center"><Send size={17} color={C.bg} /></button>
         </div>
       </div>
     </div>
@@ -1143,7 +1381,7 @@ function CoachScreen({ profile, plan, chat, setChat, onApplyPlan }) {
 function SetupSeg({ field, options, p, set }) {
   return (
     <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-      {options.map((o) => { const on = p[field] === o.v; return <button key={o.v} onClick={() => set(field, o.v)} style={{ background: on ? C.amber : C.card, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.amber : C.line}`, ...body }} className="rounded-xl py-2.5 text-xs font-semibold">{o.l}</button>; })}
+      {options.map((o) => { const on = p[field] === o.v; return <button key={o.v} onClick={() => set(field, o.v)} style={{ background: on ? "rgba(255,138,61,.14)" : C.card, color: on ? C.amber : C.mut, border: `1px solid ${on ? "rgba(255,138,61,.5)" : C.line}`, ...body }} className="rounded-full py-2.5 text-xs font-semibold">{o.l}</button>; })}
     </div>
   );
 }
@@ -1171,7 +1409,7 @@ function SetupDateField({ label, k, p, set }) {
     </div>
   );
 }
-function Setup({ onDone, initial }) {
+function Setup({ onDone, initial, embedded = false }) {
   const [p, setP] = useState(() => {
     const base = initial || { name: "", sex: "masc", age: "", height: "", weight: "", goalWeight: "", bodyNow: "magro", bodyGoal: "definido", level: "iniciante", goal: "hipertrofia", equip: "ambos", limits: "" };
     // Quem já tinha só idade cadastrada ganha uma data base estimada e editável.
@@ -1184,10 +1422,10 @@ function Setup({ onDone, initial }) {
     onDone({ ...p, birthdate: p.birthdate || birthdateFromAge(age), age, height: +p.height || 0, weight: +p.weight || 0, goalWeight: +p.goalWeight || 0, progression: p.progression || DEFAULT_PROGRESSION });
   };
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }} className="px-4">
-      <div className="mx-auto max-w-[480px] md:max-w-[560px]">
-        <div className="flex items-center gap-2 mb-1"><div style={{ background: C.amber }} className="rounded-xl w-10 h-10 flex items-center justify-center"><Dumbbell size={22} color={C.bg} /></div><h1 style={{ color: C.text, ...display }} className="text-2xl font-bold">TreinoCerto</h1></div>
-        <p style={{ color: C.mut, ...body }} className="text-sm mb-5">Vamos montar seu plano. Leva 1 minuto.</p>
+    <div style={embedded ? { paddingBottom: "calc(env(safe-area-inset-bottom) + 7rem)" } : { background: `radial-gradient(90% 50% at 50% -8%, rgba(255,138,61,.12) 0%, rgba(19,22,27,0) 70%), ${C.bg}`, minHeight: "100vh", paddingTop: "calc(env(safe-area-inset-top) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }} className={embedded ? "" : "px-4"}>
+      <div className={embedded ? "lg:max-w-xl" : "mx-auto max-w-[480px] md:max-w-[560px]"}>
+        {!embedded && <div className="flex items-center gap-2 mb-1"><Dumbbell size={26} color={C.amber} className="-rotate-45" /><h1 style={{ color: C.text, ...display }} className="text-2xl font-bold">TreinoCerto</h1></div>}
+        {!embedded && <p style={{ color: C.mut, ...body }} className="text-sm mb-5">Vamos montar seu plano. Leva 1 minuto.</p>}
         <div className="space-y-4">
           <SetupField p={p} set={set} label="Como te chamamos?" k="name" ph="seu nome" />
           <SetupDateField p={p} set={set} label="Data de nascimento" k="birthdate" />
@@ -1203,7 +1441,7 @@ function Setup({ onDone, initial }) {
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Seu nível</label><div className="mt-1"><SetupSeg p={p} set={set} field="level" options={[{ v: "iniciante", l: "Iniciante" }, { v: "intermediario", l: "Intermediário" }, { v: "avancado", l: "Avançado" }]} /></div></div>
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Prefere treinar com</label><div className="mt-1"><SetupSeg p={p} set={set} field="equip" options={[{ v: "maquina", l: "Máquinas" }, { v: "livre", l: "Peso livre" }, { v: "ambos", l: "Tanto faz" }]} /></div></div>
           <div><label style={{ color: C.mut, ...body }} className="text-xs font-semibold">Alguma limitação? (opcional)</label><textarea value={p.limits} onChange={(e) => set("limits", e.target.value)} rows={2} placeholder="ex.: dor no joelho, ombro, hérnia..." style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-xl px-3 py-2.5 mt-1 outline-none text-sm resize-none" /></div>
-          <button onClick={submit} disabled={!valid} style={{ background: valid ? C.amber : C.card, color: valid ? C.bg : C.mut2, ...display }} className="w-full rounded-2xl py-4 font-bold text-base mt-2">Montar meu plano</button>
+          <button onClick={submit} disabled={!valid} style={{ background: valid ? CTA_BG : C.card, color: valid ? C.bg : C.mut2, boxShadow: valid ? "0 12px 34px rgba(255,138,61,.3)" : "none", ...label }} className="w-full rounded-full py-4 text-[17px] mt-2">{embedded ? "Salvar e refazer plano" : "Montar meu plano"}</button>
           <p style={{ color: C.mut2, ...body }} className="text-xs leading-relaxed text-center px-2">Ferramenta de orientação — não substitui educador físico ou médico. Faça avaliação profissional, principalmente com limitações ou condições de saúde.</p>
         </div>
       </div>
@@ -1230,6 +1468,250 @@ function WeighInModal({ nextDay, onSave, onSkip }) {
         <button onClick={onSkip} style={{ color: C.mut, ...body }} className="w-full py-2 text-sm font-semibold">Agora não</button>
         {nextDay && <p style={{ color: C.mut2, ...body }} className="text-xs mt-3">Próximo: Treino {nextDay.id} — {nextDay.name}</p>}
       </div>
+    </div>
+  );
+}
+
+/* ============================== TELA: EXERCÍCIOS ==============================
+   Navega o catálogo completo (1.324, MIT — nomes em inglês do dataset) por
+   músculo ou equipamento, com busca. A aba "Do app" mostra os 38 exercícios da
+   biblioteca do TreinoCerto (com passo a passo em português).
+   O catálogo é carregado sob demanda (import dinâmico) para não pesar o app. */
+const TARGET_INFO = {
+  pectorals: ["Peitoral", "chest"], delts: ["Ombros", "deltoids"], lats: ["Dorsais", "upperBack"],
+  "upper back": ["Costas (parte alta)", "upperBack"], traps: ["Trapézio", "trapezius"], spine: ["Lombar", "lowerBack"],
+  biceps: ["Bíceps", "biceps"], triceps: ["Tríceps", "triceps"], forearms: ["Antebraço", "forearm"],
+  abs: ["Abdômen", "abs"], "serratus anterior": ["Serrátil", "obliques"], quads: ["Quadríceps", "quadriceps"],
+  hamstrings: ["Posteriores", "hamstring"], glutes: ["Glúteos", "gluteal"], adductors: ["Adutores", "adductors"],
+  abductors: ["Abdutores", "gluteal"], calves: ["Panturrilhas", "calves"], "levator scapulae": ["Elevador da escápula", "trapezius"],
+  "cardiovascular system": ["Cardio", null],
+};
+const TARGET_ORDER = Object.keys(TARGET_INFO);
+const EQUIP_SECTIONS = [
+  ["Pesos livres", { dumbbell: "Halteres", barbell: "Barra", "ez barbell": "Barra W", "olympic barbell": "Barra olímpica", "trap bar": "Barra hexagonal", kettlebell: "Kettlebell", weighted: "Anilha / com peso", "medicine ball": "Medicine ball" }],
+  ["Máquinas e polias", { cable: "Polia / cabo", "leverage machine": "Máquina articulada", "smith machine": "Smith", "sled machine": "Leg press / trenó", assisted: "Máquina assistida", "stationary bike": "Bicicleta ergométrica", "elliptical machine": "Elíptico", "stepmill machine": "Escada (stepmill)", "skierg machine": "SkiErg", "upper body ergometer": "Ergômetro de braço" }],
+  ["Peso do corpo e acessórios", { "body weight": "Peso do corpo", band: "Elástico", "resistance band": "Faixa elástica", "stability ball": "Bola suíça", "bosu ball": "Bosu", rope: "Corda", roller: "Rolo", "wheel roller": "Roda abdominal", tire: "Pneu", hammer: "Marreta" }],
+];
+const EQUIP_PT = Object.assign({}, ...EQUIP_SECTIONS.map(([, m]) => m));
+const EQUIP_FREE = new Set(Object.keys(EQUIP_SECTIONS[0][1]));
+const EQUIP_MACHINE = new Set(Object.keys(EQUIP_SECTIONS[1][1]));
+const equipIcon = (eq) => EQUIP_FREE.has(eq) ? Dumbbell : EQUIP_MACHINE.has(eq) ? Cog : Hand;
+const targetPT = (t) => TARGET_INFO[t]?.[0] || t;
+const capitalize = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+// Liga o catálogo à biblioteca do app (datasetId → refId), quando existe.
+const LIB_BY_DATASET = Object.fromEntries(Object.entries(MEDIA_MAP).map(([refId, m]) => [m.datasetId, refId]));
+
+function CatalogThumb({ item, size = 56 }) {
+  const urls = catalogMediaUrls(item.gif);
+  const [i, setI] = useState(0);
+  if (i < urls.length) {
+    return (
+      <div style={{ width: size, height: size, background: "#fff" }} className="rounded-2xl overflow-hidden shrink-0">
+        <img key={i} src={urls[i]} alt="" loading="lazy" decoding="async" onError={() => setI(i + 1)} style={{ width: size, height: size, objectFit: "contain" }} />
+      </div>
+    );
+  }
+  const slug = TARGET_INFO[item.target]?.[1];
+  if (!slug) return <div style={{ width: size, height: size, background: C.card2, color: C.amber }} className="rounded-2xl shrink-0 flex items-center justify-center"><HeartPulse size={size * 0.42} /></div>;
+  return <div className="rounded-2xl overflow-hidden shrink-0"><MuscleThumb slug={slug} size={size} /></div>;
+}
+
+function CatalogRow({ item, onClick }) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3.5 py-2.5 text-left active:bg-white/5 hover:bg-white/5">
+      <CatalogThumb item={item} />
+      <span className="flex-1 min-w-0">
+        <span style={{ color: C.text, ...body }} className="block text-[15px] font-medium leading-snug line-clamp-2">{capitalize(item.name)}</span>
+        <span style={{ color: C.mut2, ...body }} className="block text-xs mt-0.5 truncate">{targetPT(item.target)} · {EQUIP_PT[item.equipment] || item.equipment}</span>
+      </span>
+      {LIB_BY_DATASET[item.id] && <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, ...label }} className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px]">No app</span>}
+      <ChevronRight size={17} style={{ color: C.mut2 }} className="shrink-0" />
+    </button>
+  );
+}
+
+function CatalogSheet({ item, onClose, onOpenLib }) {
+  const urls = catalogMediaUrls(item.gif);
+  const [gi, setGi] = useState(0);
+  const url = urls[gi]; const err = gi >= urls.length;
+  const slug = TARGET_INFO[item.target]?.[1];
+  const libId = LIB_BY_DATASET[item.id];
+  const EI = equipIcon(item.equipment);
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center">
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={item.name} style={{ background: C.bg2, border: `1px solid ${C.line}` }}
+        className="w-full max-w-[480px] lg:max-w-[520px] rounded-t-[28px] lg:rounded-3xl px-5 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+20px)] max-h-[90vh] overflow-y-auto an-sheet">
+        <div style={{ background: C.line }} className="w-10 h-1 rounded-full mx-auto mb-3 lg:hidden" />
+        <div className="flex justify-end"><button onClick={onClose} aria-label="Fechar" style={{ color: C.mut, background: C.card }} className="w-8 h-8 rounded-full flex items-center justify-center"><X size={17} /></button></div>
+        <div style={{ background: url && !err ? "#fff" : `radial-gradient(circle at 50% 40%, ${C.card2} 0%, ${C.bg} 80%)` }} className="rounded-3xl h-[240px] mt-2 flex items-center justify-center overflow-hidden">
+          {url && !err
+            ? <img key={gi} src={url} alt={`Execução: ${item.name}`} onError={() => setGi(gi + 1)} className="h-full w-full object-contain" />
+            : slug ? <BodyMap body={{ side: sideOf(slug) }} highlight={{ main: [slug], sec: [] }} height={220} /> : <HeartPulse size={64} color={C.amber} />}
+        </div>
+        <h2 style={{ color: C.text, ...display }} className="text-[22px] leading-tight font-bold mt-4">{capitalize(item.name)}</h2>
+        <p style={{ color: C.mut2, ...body }} className="text-xs mt-1">Nome original do catálogo (em inglês).</p>
+        <div className="mt-4"><ListGroup>
+          <ListRow icon={Target} title="Músculo-alvo" value={targetPT(item.target)} />
+          <ListRow icon={EI} title="Equipamento" value={EQUIP_PT[item.equipment] || item.equipment} />
+        </ListGroup></div>
+        {libId ? (
+          <button onClick={() => onOpenLib(libId)} style={{ background: CTA_BG, color: C.bg, ...label }} className="w-full rounded-full py-3.5 mt-4 text-[16px] flex items-center justify-center gap-2"><Info size={17} /> Ver passo a passo no app</button>
+        ) : (
+          <p style={{ color: C.mut2, ...body }} className="text-xs mt-4 leading-relaxed">Este exercício ainda não faz parte da biblioteca do app, então não tem passo a passo em português. Dúvidas de execução? Pergunte ao Coach.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExercisesScreen({ tracking }) {
+  const [catalog, setCatalog] = useState(null);
+  const [mode, setMode] = useState("musculo");
+  const [cat, setCat] = useState(null); // { kind: "target" | "equip", key }
+  const [searching, setSearching] = useState(false);
+  const [q, setQ] = useState("");
+  const [item, setItem] = useState(null);
+  const [libItem, setLibItem] = useState(null);
+  const [limit, setLimit] = useState(60);
+  const searchRef = useRef(null);
+
+  useEffect(() => { let alive = true; import("@/lib/exercise-catalog.json").then((m) => { if (alive) setCatalog(m.default || m); }); return () => { alive = false; }; }, []);
+  useEffect(() => { setLimit(60); }, [cat, q, mode]);
+  useEffect(() => { if (searching) searchRef.current?.focus(); }, [searching]);
+
+  const counts = (key) => (catalog || []).reduce((m, e) => { m[e[key]] = (m[e[key]] || 0) + 1; return m; }, {});
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const term = norm(q.trim());
+  const matches = (e) => !term || norm(e.name).includes(term) || norm(targetPT(e.target)).includes(term) || norm(EQUIP_PT[e.equipment]).includes(term);
+
+  let list = null; let title = "Exercícios"; let sub = catalog ? `${catalog.length.toLocaleString("pt-BR")} no catálogo` : "Carregando catálogo…";
+  if (catalog && cat) {
+    list = catalog.filter((e) => (cat.kind === "target" ? e.target === cat.key : e.equipment === cat.key) && matches(e));
+    title = cat.kind === "target" ? targetPT(cat.key) : (EQUIP_PT[cat.key] || cat.key);
+    sub = `${list.length} exercício${list.length === 1 ? "" : "s"}`;
+  } else if (catalog && term) {
+    list = catalog.filter(matches);
+    sub = `${list.length} resultado${list.length === 1 ? "" : "s"} para "${q.trim()}"`;
+  }
+  const back = () => { setCat(null); setQ(""); setSearching(false); window.scrollTo({ top: 0 }); };
+  const openCat = (kind, key) => { setCat({ kind, key }); setQ(""); setSearching(false); window.scrollTo({ top: 0 }); };
+
+  const tc = counts("target"); const ec = counts("equipment");
+  const libGroups = GROUP_ORDER.map((g) => [g, byGroup(g)]).filter(([, l]) => l.length);
+
+  return (
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10 lg:max-w-3xl">
+      <ScreenHeader title={title} sub={sub}>
+        {cat && <IconBtn icon={ChevronLeft} label="Voltar" onClick={back} />}
+        <IconBtn icon={searching ? X : Search} label={searching ? "Fechar busca" : "Buscar exercício"} active={searching}
+          onClick={() => { if (searching) { setSearching(false); setQ(""); } else setSearching(true); }} />
+      </ScreenHeader>
+
+      {searching && (
+        <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-full flex items-center gap-2 px-4 mb-3">
+          <Search size={16} style={{ color: C.mut2 }} />
+          <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={cat ? `Buscar em ${title}…` : "Nome (em inglês), músculo ou equipamento"}
+            style={{ color: C.text, ...body }} className="flex-1 min-w-0 bg-transparent py-3 outline-none text-sm" />
+        </div>
+      )}
+
+      {!catalog && <div className="py-16 flex justify-center"><Loader2 className="an-spin" color={C.amber} size={28} /></div>}
+
+      {catalog && list && (
+        <>
+          <div className="divide-y divide-[#2A313C]">
+            {list.slice(0, limit).map((e) => <CatalogRow key={e.id} item={e} onClick={() => setItem(e)} />)}
+          </div>
+          {list.length === 0 && <p style={{ color: C.mut2, ...body }} className="text-sm text-center py-10">Nada encontrado. Os nomes do catálogo estão em inglês — tente, por exemplo, "curl", "press" ou "squat".</p>}
+          {list.length > limit && (
+            <button onClick={() => setLimit((l) => l + 60)} style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...label }} className="w-full rounded-full py-3 mt-3 text-[14px]">Mostrar mais ({list.length - limit})</button>
+          )}
+        </>
+      )}
+
+      {catalog && !list && (
+        <>
+          <Segmented options={[["musculo", "Por músculo"], ["equip", "Equipamentos"], ["app", "Do app"]]} value={mode} onChange={setMode} />
+
+          {mode === "musculo" && (
+            <div className="divide-y divide-[#2A313C] mt-2">
+              {TARGET_ORDER.filter((t) => tc[t]).map((t) => {
+                const slug = TARGET_INFO[t][1];
+                return (
+                  <button key={t} onClick={() => openCat("target", t)} className="w-full flex items-center gap-4 py-3 text-left active:bg-white/5 hover:bg-white/5">
+                    {slug ? <MuscleThumb slug={slug} size={60} /> : <span style={{ background: C.card2, color: C.amber }} className="w-[60px] h-[60px] rounded-xl flex items-center justify-center shrink-0"><HeartPulse size={26} /></span>}
+                    <span className="flex-1 min-w-0">
+                      <span style={{ color: C.text, ...body }} className="block text-[16px] font-semibold">{targetPT(t)}</span>
+                      <span style={{ color: C.mut2, ...body }} className="block text-xs mt-0.5">{tc[t]} exercício{tc[t] === 1 ? "" : "s"}</span>
+                    </span>
+                    <ChevronRight size={17} style={{ color: C.mut2 }} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {mode === "equip" && EQUIP_SECTIONS.map(([sec, map]) => {
+            const keys = Object.keys(map).filter((k) => ec[k]).sort((a, b) => ec[b] - ec[a]);
+            if (!keys.length) return null;
+            return (
+              <div key={sec}>
+                <SectionLabel>{sec}</SectionLabel>
+                <div className="divide-y divide-[#2A313C]">
+                  {keys.map((k) => {
+                    const I = equipIcon(k);
+                    return (
+                      <button key={k} onClick={() => openCat("equip", k)} className="w-full flex items-center gap-4 py-3 text-left active:bg-white/5 hover:bg-white/5">
+                        <span style={{ background: C.text, color: C.bg }} className="w-[52px] h-[52px] rounded-2xl flex items-center justify-center shrink-0"><I size={24} /></span>
+                        <span className="flex-1 min-w-0">
+                          <span style={{ color: C.text, ...body }} className="block text-[16px] font-semibold">{map[k]}</span>
+                          <span style={{ color: C.mut2, ...body }} className="block text-xs mt-0.5">{ec[k]} exercício{ec[k] === 1 ? "" : "s"}</span>
+                        </span>
+                        <ChevronRight size={17} style={{ color: C.mut2 }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {mode === "app" && (
+            <>
+              <p style={{ color: C.mut2, ...body }} className="text-xs mt-3 leading-relaxed">Exercícios que o app usa nos planos, com passo a passo em português, músculos e sua última carga.</p>
+              {libGroups.map(([g, l]) => (
+                <div key={g}>
+                  <SectionLabel>{GROUP_LABELS[g]}</SectionLabel>
+                  <div className="divide-y divide-[#2A313C]">
+                    {l.map((e) => {
+                      const best = (tracking?.lastLoads?.[e.id] || []).reduce((m, s) => Math.max(m, num(s?.kg)), 0);
+                      return (
+                        <button key={e.id} onClick={() => setLibItem(e)} className="w-full flex items-center gap-3.5 py-2.5 text-left active:bg-white/5 hover:bg-white/5">
+                          <ExerciseMedia refId={e.id} body={e.body} size={56} radius={16} badge={false} />
+                          <span className="flex-1 min-w-0">
+                            <span style={{ color: C.text, ...body }} className="block text-[15px] font-medium leading-snug">{e.name}</span>
+                            <span style={{ color: C.mut2, ...body }} className="block text-xs mt-0.5">{(EQUIP[e.equip] || EQUIP.maquina).label}{best ? ` · último ${best} kg` : ""}</span>
+                          </span>
+                          <ChevronRight size={17} style={{ color: C.mut2 }} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-6 leading-relaxed">Catálogo: exercises-dataset (MIT). Nomes do catálogo em inglês.</p>
+        </>
+      )}
+
+      {item && <CatalogSheet item={item} onClose={() => setItem(null)} onOpenLib={(id) => { setItem(null); setLibItem(LIB_BY_ID[id]); }} />}
+      {libItem && <ExerciseDetail item={libItem} prevLoads={tracking?.lastLoads} onClose={() => setLibItem(null)} onOpenItem={(li) => setLibItem(li)} />}
     </div>
   );
 }
@@ -1356,27 +1838,28 @@ export default function Dashboard({ userName }) {
   if (!ready) return <div style={{ background: C.bg, minHeight: "100vh" }} className="flex items-center justify-center"><Loader2 className="an-spin" color={C.amber} size={32} /></div>;
   if (!profile || !plan) return <><Styles /><Setup onDone={finishSetup} /></>;
 
-  const tabs = [{ k: "today", icon: Flame, label: "Hoje" }, { k: "plan", icon: Calendar, label: "Plano" }, { k: "progress", icon: LineIcon, label: "Evolução" }, { k: "coach", icon: MessageCircle, label: "Coach" }];
+  const tabs = [{ k: "today", icon: Flame, label: "Hoje" }, { k: "plan", icon: LayoutGrid, label: "Plano" }, { k: "progress", icon: BarChart3, label: "Evolução" }, { k: "exercises", icon: BookOpen, label: "Exercícios" }, { k: "coach", icon: MessageCircle, label: "Coach" }, { k: "settings", icon: User, label: "Perfil" }];
   const firstName = profile.name.split(" ")[0];
+  const go = (k) => { setTab(k); window.scrollTo({ top: 0 }); };
 
   return (
     <BodySexContext.Provider value={profile.sex}>
-    <div style={{ background: C.bg, minHeight: "100vh", ...body }} className="overflow-x-clip">
+    <div style={{ background: `radial-gradient(90% 50% at 50% -8%, rgba(255,138,61,.10) 0%, rgba(19,22,27,0) 70%), ${C.bg}`, backgroundAttachment: "fixed", minHeight: "100vh", ...body }} className="overflow-x-clip">
       <Styles />
 
       {/* Menu lateral (computador) */}
-      <aside style={{ background: C.bg2, borderRight: `1px solid ${C.line}` }} className="hidden lg:flex fixed inset-y-0 left-0 w-64 z-40 flex-col p-5">
+      <aside style={{ background: "rgba(24,28,35,.85)", borderRight: "1px solid rgba(255,255,255,.06)" }} className="hidden lg:flex fixed inset-y-0 left-0 w-64 z-40 flex-col p-5">
         <div className="flex items-center gap-2.5 mb-8">
-          <div style={{ background: C.amber }} className="rounded-xl w-10 h-10 flex items-center justify-center"><Dumbbell size={22} color={C.bg} /></div>
+          <Dumbbell size={26} color={C.amber} className="-rotate-45" />
           <span style={{ color: C.text, ...display }} className="text-xl font-bold">TreinoCerto</span>
         </div>
         <nav className="space-y-1">
-          {[...tabs, { k: "settings", icon: User, label: "Perfil" }].map((t) => {
+          {tabs.map((t) => {
             const on = tab === t.k; const Icon = t.icon;
             return (
-              <button key={t.k} onClick={() => setTab(t.k)} style={{ background: on ? "rgba(255,138,61,.12)" : "transparent", color: on ? C.amber : C.mut, ...body }}
-                className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold flex items-center gap-3 text-left">
-                <Icon size={19} /> {t.label}
+              <button key={t.k} onClick={() => go(t.k)} style={{ background: on ? C.card2 : "transparent", color: on ? C.text : C.mut, boxShadow: on ? "inset 0 0 0 1px rgba(255,255,255,.07)" : "none", ...label }}
+                className="w-full rounded-full px-4 py-3 text-[15px] flex items-center gap-3 text-left hover:bg-white/5">
+                <Icon size={19} color={on ? C.amber : C.mut} /> {t.label}
               </button>
             );
           })}
@@ -1392,86 +1875,118 @@ export default function Dashboard({ userName }) {
       </aside>
 
       <div className="lg:pl-64">
-      {/* Topo (celular/tablet) */}
-      <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}`, paddingTop: "calc(env(safe-area-inset-top) + 12px)" }} className="lg:hidden sticky top-0 z-40 px-4 pb-3">
-        <div className="mx-auto max-w-[480px] md:max-w-[720px] flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 shrink-0 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold truncate">Olá, {firstName}</span><span style={{ color: C.mut2, ...body }} className="text-[10px] font-semibold shrink-0">v{APP_VERSION}</span></div>
-          <button onClick={() => setTab("settings")} style={{ color: tab === "settings" ? C.amber : C.mut }} aria-label="Perfil"><User size={20} /></button>
-        </div>
-      </div>
-      <div className="mx-auto px-4 py-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
-        <p style={{ color: C.mut, ...body }} className="hidden lg:block text-sm mb-1">Olá, {firstName} 👋</p>
-        {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} />}
-        {tab === "plan" && <PlanScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} buildFromConfig={buildFromConfig} aiBusy={aiBusy} tracking={tracking} goToday={() => { setTab("today"); window.scrollTo({ top: 0 }); }} />}
+      <div className="mx-auto px-4 pb-4 max-w-[480px] md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:py-8">
+        {tab === "today" && <TodayScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} tracking={tracking} onComplete={completeDay} goPlan={() => go("plan")} goCoach={() => go("coach")} goProgress={() => go("progress")} />}
+        {tab === "plan" && <PlanScreen profile={profile} plan={plan} setPlan={setPlan} session={session} setSession={setSession} buildFromConfig={buildFromConfig} aiBusy={aiBusy} tracking={tracking} goToday={() => go("today")} />}
         {tab === "progress" && <ProgressScreen profile={profile} tracking={tracking} addWeight={(w) => { addWeight(w); showToast("Peso registrado!"); }} />}
+        {tab === "exercises" && <ExercisesScreen tracking={tracking} />}
         {tab === "coach" && <CoachScreen profile={profile} plan={plan} chat={chat} setChat={setChat} onApplyPlan={applyCoachPlan} />}
-        {tab === "settings" && <SettingsScreen profile={profile} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
+        {tab === "settings" && <SettingsScreen profile={profile} tracking={tracking} setProfile={setProfile} setPlan={setPlan} showToast={showToast} onReset={async () => { setProfile(null); setPlan(null); setTracking({ weightLog: [], history: [] }); setSession({ sets: {} }); setChat([]); await patchState({ profile: null, plan: null, tracking: { weightLog: [], history: [] }, session: { sets: {} }, chat: [] }); }} onSignOut={async () => { await signOut(); window.location.reload(); }} />}
       </div>
       </div>
-      <div style={{ background: C.bg2, borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }} className="lg:hidden fixed bottom-0 left-0 right-0 z-40">
-        <div className="mx-auto max-w-[480px] md:max-w-[720px] grid grid-cols-4">
-          {tabs.map((t) => { const on = tab === t.k; const Icon = t.icon; return <button key={t.k} onClick={() => setTab(t.k)} className="py-2.5 flex flex-col items-center gap-0.5"><Icon size={22} color={on ? C.amber : C.mut2} /><span style={{ color: on ? C.amber : C.mut2, ...body }} className="text-[10px] font-semibold">{t.label}</span></button>; })}
+
+      {/* Menu inferior flutuante (celular/tablet) */}
+      <nav style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }} className="lg:hidden fixed left-3 right-3 z-40">
+        <div style={{ ...GLASS, boxShadow: "0 14px 40px rgba(0,0,0,.45)" }} className="mx-auto max-w-[480px] md:max-w-[620px] grid grid-cols-6 rounded-full p-1">
+          {tabs.map((t) => {
+            const on = tab === t.k; const Icon = t.icon;
+            return (
+              <button key={t.k} onClick={() => go(t.k)} aria-current={on ? "page" : undefined}
+                style={{ background: on ? "rgba(255,255,255,.09)" : "transparent" }}
+                className="rounded-full py-2 flex flex-col items-center gap-0.5 transition-colors">
+                <Icon size={20} color={on ? C.amber : C.mut} strokeWidth={on ? 2.4 : 2} />
+                <span style={{ color: on ? C.text : C.mut, ...label, letterSpacing: ".02em" }} className="text-[10px] leading-none mt-0.5">{t.label}</span>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </nav>
       {weighIn && <WeighInModal nextDay={weighIn.next} onSave={closeWeighIn} onSkip={() => closeWeighIn(null)} />}
-      {toast && <div style={{ background: C.mintDim, border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440 }} className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-8 left-1/2 lg:left-[calc(50%+8rem)] -translate-x-1/2 z-50 rounded-2xl px-4 py-3 text-sm font-semibold text-center mx-4 an-toast">{toast}</div>}
+      {toast && <div style={{ background: "rgba(30,94,69,.95)", border: `1px solid ${C.mint}`, color: C.mint, maxWidth: 440, backdropFilter: "blur(12px)" }} className="fixed top-[calc(env(safe-area-inset-top)+14px)] lg:top-auto lg:bottom-8 left-1/2 lg:left-[calc(50%+8rem)] -translate-x-1/2 z-50 rounded-full px-5 py-3 text-sm font-semibold text-center w-[calc(100%-2rem)] lg:w-auto an-toast">{toast}</div>}
     </div>
     </BodySexContext.Provider>
   );
 }
 
-function SettingsScreen({ profile, onReset, onSignOut, setProfile, setPlan, showToast }) {
+const GOAL_LABEL = { emagrecer: "Emagrecer", hipertrofia: "Ganhar massa", forca: "Força", saude: "Saúde" };
+const LEVEL_LABEL = { iniciante: "Iniciante", intermediario: "Intermediário", avancado: "Avançado" };
+const EQUIP_PREF_LABEL = { maquina: "Máquinas", livre: "Peso livre", ambos: "Tanto faz" };
+
+function SettingsScreen({ profile, tracking, onReset, onSignOut, setProfile, setPlan, showToast }) {
   const [editing, setEditing] = useState(false);
-  if (editing) return <Setup initial={profile} onDone={(np) => { setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />;
+  if (editing) return (
+    <div>
+      <ScreenHeader title="Editar perfil"><IconBtn icon={X} label="Cancelar" onClick={() => setEditing(false)} /></ScreenHeader>
+      <Setup embedded initial={profile} onDone={(np) => { setProfile(np); setPlan(buildPlan(np)); setEditing(false); showToast("Perfil e plano atualizados!"); }} />
+    </div>
+  );
   const prog = profile.progression || DEFAULT_PROGRESSION;
   const bd = profile.birthdate || birthdateFromAge(profile.age);
   const age = ageFromBirthdate(bd) || profile.age;
   const setProg = (patch) => setProfile((pr) => ({ ...pr, progression: { ...DEFAULT_PROGRESSION, ...(pr.progression || {}), ...patch } }));
+  const hist = tracking?.history || [];
+  const records = Object.keys(tracking?.lastLoads || {}).length;
+  const mins = hist.reduce((a, h) => a + (h.minutes || 0), 0);
+  const toggle = (
+    <button onClick={() => setProg({ enabled: !prog.enabled })} aria-label="Ligar/desligar progressão" aria-pressed={prog.enabled}
+      style={{ background: prog.enabled ? C.amber : C.card2, border: `1px solid ${prog.enabled ? C.amber : C.line}` }}
+      className="relative shrink-0 w-12 h-7 rounded-full transition-colors">
+      <span style={{ background: prog.enabled ? C.bg : C.mut, left: prog.enabled ? 22 : 3 }} className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full transition-all" />
+    </button>
+  );
   return (
     <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10 lg:max-w-xl">
-      <h2 style={{ color: C.text, ...display }} className="text-xl lg:text-2xl font-bold mb-3">Perfil</h2>
-      <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded-2xl p-4 space-y-2">
-        <Row k="Nome" v={profile.name} />
-        <Row k="Nascimento / Idade" v={`${bd ? bd.split("-").reverse().join("/") : "—"} · ${age || "—"} anos`} />
-        <Row k="Altura / Peso" v={`${profile.height}cm · ${profile.weight}kg`} />
-        <Row k="Meta de peso" v={`${profile.goalWeight || "—"}kg`} />
-        <Row k="Objetivo / Nível" v={`${profile.goal} · ${profile.level}`} />
-        <Row k="Equipamento" v={profile.equip || "ambos"} />
-        <Row k="Limitações" v={profile.limits || "nenhuma"} />
+      <ScreenHeader title="Perfil">
+        <IconBtn icon={Pencil} label="Editar perfil" onClick={() => setEditing(true)} />
+      </ScreenHeader>
+
+      <div className="flex items-center gap-3 mt-1">
+        <div style={{ background: CTA_BG, color: C.bg, ...display }} className="rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shrink-0">{profile.name.slice(0, 1).toUpperCase()}</div>
+        <div className="min-w-0">
+          <p style={{ color: C.text, ...display }} className="text-lg font-bold truncate">{profile.name}</p>
+          <span style={{ background: "rgba(255,138,61,.14)", color: C.amber, ...label }} className="inline-block rounded-full px-2.5 py-0.5 text-[11px] mt-0.5">{GOAL_LABEL[profile.goal] || profile.goal} · {LEVEL_LABEL[profile.level] || profile.level}</span>
+        </div>
       </div>
 
-      {/* Progressão de carga */}
-      <div style={{ background: C.card, border: `1px solid ${prog.enabled ? C.mintDim : C.line}` }} className="rounded-2xl p-4 mt-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p style={{ color: C.text, ...body }} className="text-sm font-semibold flex items-center gap-1.5"><LineIcon size={16} style={{ color: C.mint }} /> Progressão de carga</p>
-            <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5 leading-snug">A cada treino, o app sugere um pouco mais de carga que o último, para você evoluir aos poucos.</p>
+      <div className="grid grid-cols-3 mt-5" style={{ borderTop: "1px solid #2A313C", borderBottom: "1px solid #2A313C" }}>
+        {[[hist.length, "Total de treinos"], [records, "Exercícios com carga"], [mins >= 60 ? `${Math.floor(mins / 60)}h` : `${mins}min`, "Tempo ativo"]].map(([v, t], i) => (
+          <div key={t} className="py-3.5 px-1" style={{ borderLeft: i ? "1px solid #2A313C" : "none", paddingLeft: i ? 14 : 0 }}>
+            <p style={{ color: C.text, ...display }} className="text-xl font-bold leading-none">{v}</p>
+            <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-1 leading-tight">{t}</p>
           </div>
-          <button onClick={() => setProg({ enabled: !prog.enabled })} aria-label="Ligar/desligar progressão"
-            style={{ background: prog.enabled ? C.mint : C.card2, border: `1px solid ${prog.enabled ? C.mint : C.line}` }}
-            className="relative shrink-0 w-12 h-7 rounded-full transition-colors">
-            <span style={{ background: prog.enabled ? C.bg : C.mut, left: prog.enabled ? 22 : 3 }} className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full transition-all" />
-          </button>
-        </div>
+        ))}
+      </div>
+
+      <SectionLabel>Perfil e ajustes</SectionLabel>
+      <ListGroup>
+        <ListRow icon={Calendar} title="Nascimento" value={`${bd ? bd.split("-").reverse().join("/") : "—"} · ${age || "—"} anos`} onClick={() => setEditing(true)} />
+        <ListRow icon={Ruler} title="Altura / Peso" value={`${profile.height}cm · ${profile.weight}kg`} onClick={() => setEditing(true)} />
+        <ListRow icon={Target} title="Meta de peso" value={`${profile.goalWeight || "—"} kg`} onClick={() => setEditing(true)} />
+        <ListRow icon={Dumbbell} title="Equipamento" value={EQUIP_PREF_LABEL[profile.equip] || profile.equip || "Tanto faz"} onClick={() => setEditing(true)} />
+        <ListRow icon={HeartPulse} title="Limitações" value={profile.limits || "Nenhuma"} onClick={() => setEditing(true)} />
+      </ListGroup>
+
+      <SectionLabel>Treino</SectionLabel>
+      <ListGroup>
+        <ListRow icon={LineIcon} title="Progressão de carga" sub="Sugere um pouco mais de carga a cada treino." right={toggle} />
         {prog.enabled && (
-          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-            <span style={{ color: C.mut2, ...body }} className="text-[11px] uppercase tracking-wide mr-1">Incremento:</span>
-            {[1, 2.5, 5].map((s) => {
-              const on = num(prog.stepKg) === s;
-              return <button key={s} onClick={() => setProg({ stepKg: s })} style={{ background: on ? C.mint : C.bg2, color: on ? C.bg : C.mut, border: `1px solid ${on ? C.mint : C.line}`, ...body }} className="rounded-lg px-3 py-1.5 text-xs font-semibold">+{s} kg</button>;
-            })}
+          <div className="px-4 py-3">
+            <Segmented size="sm" options={[1, 2.5, 5].map((s) => [s, `+${String(s).replace(".", ",")} kg`])} value={num(prog.stepKg)} onChange={(s) => setProg({ stepKg: s })} />
           </div>
         )}
-      </div>
+        <ListRow icon={RotateCcw} title="Editar e refazer plano" onClick={() => setEditing(true)} />
+      </ListGroup>
 
-      <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="w-full rounded-2xl py-3 mt-3 font-bold">Editar e refazer plano</button>
-      <button onClick={onSignOut} style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><LogOut size={16} /> Sair da conta</button>
-      <button onClick={onReset} style={{ background: C.card, color: C.red, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><RotateCcw size={16} /> Apagar tudo e recomeçar</button>
-      <p style={{ color: C.mut2, ...body }} className="text-xs text-center mt-4">TreinoCerto · versão {APP_VERSION}</p>
+      <SectionLabel>Conta</SectionLabel>
+      <ListGroup>
+        <ListRow icon={LogOut} title="Sair da conta" onClick={onSignOut} />
+        <ListRow icon={Trash2} title="Apagar tudo e recomeçar" danger onClick={() => { if (window.confirm("Apagar perfil, plano, histórico e conversas? Isso não pode ser desfeito.")) onReset(); }} />
+      </ListGroup>
+      <div className="mt-4 lg:hidden"><InstallButton C={C} body={body} /></div>
+      <p style={{ color: C.mut2, ...body }} className="text-xs text-center mt-5">TreinoCerto · versão {APP_VERSION}</p>
     </div>
   );
 }
-function Row({ k, v }) { return <div className="flex justify-between gap-3"><span style={{ color: C.mut, ...body }} className="text-sm">{k}</span><span style={{ color: C.text, ...body }} className="text-sm font-semibold text-right">{v}</span></div>; }
 function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 
 /* ============================== ESTILOS ============================== */
@@ -1484,6 +1999,10 @@ function Styles() {
       .an-slide { animation: slidein .25s ease; } @keyframes slidein { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
       @media (min-width: 1024px) { .an-slide { animation-name: slidex; } @keyframes slidex { from { transform: translateX(40px); opacity: .4; } to { transform: none; opacity: 1; } } }
       .an-pulse { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+      .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+      .tc-pop { animation: tcpop .16s ease-out; transform-origin: top right; } @keyframes tcpop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+      .an-sheet { animation: sheetin .25s cubic-bezier(.2,.8,.2,1); } @keyframes sheetin { from { transform: translateY(40px); opacity: .5; } to { transform: none; opacity: 1; } }
+      @media (max-width: 1023px) { .tc-head { background: linear-gradient(180deg, rgba(19,22,27,.96) 0%, rgba(19,22,27,.88) 75%, rgba(19,22,27,0) 100%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); } }
       input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .an-toast { animation: pop .25s ease; } @keyframes pop { from { transform: translate(-50%,8px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
       .an-squat { animation: squat 1.8s ease-in-out infinite; transform-origin: 60px 110px; } @keyframes squat { 0%,100% { transform: translateY(0) scaleY(1);} 50% { transform: translateY(14px) scaleY(.82);} }
