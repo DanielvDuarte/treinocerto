@@ -5,6 +5,21 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.4.0] — 2026-11-25
+
+### Adicionado
+
+- **Séries ajustáveis no treino**: botões **− / + Série** em cada exercício (e no
+  menu ⋮) para adicionar ou remover séries durante o treino — ex.: fez uma série a
+  mais, ou só conseguiu uma/duas com carga maior.
+- **Adicionar exercício** direto na tela "Hoje" (ação rápida → folha com grupos →
+  escolhe e inclui no treino do dia).
+- **Remover exercício** do treino de hoje (menu ⋮ do card; mantém ao menos 1).
+- **Cardio sem séries/reps**: esteira, bike e corrida agora usam **Duração (min)** e
+  **Distância (km)** com um botão de concluir, em vez de séries × repetições × peso.
+
+> Reaplicado sobre a repaginação visual do v1.3.0.
+
 ## [1.3.0] — 2026-11-24
 
 ### Adicionado

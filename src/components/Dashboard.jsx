@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2, MoreVertical, MoreHorizontal, SlidersHorizontal, LayoutGrid, BarChart3, Target, Ruler, HeartPulse, Search, ChevronLeft, BookOpen } from "lucide-react";
+import { Dumbbell, Flame, LineChart as LineIcon, MessageCircle, User, Check, RotateCcw, Play, Pause, Plus, Minus, ChevronRight, Sparkles, Replace, Trophy, Calendar, Send, Scale, Info, Loader2, X, Cog, Hand, LogOut, Timer, Pencil, Trash2, Wand2, MoreVertical, MoreHorizontal, SlidersHorizontal, LayoutGrid, BarChart3, Target, Ruler, HeartPulse, Search, ChevronLeft, BookOpen, MapPin } from "lucide-react";
 import BodyMap, { BodySexContext, MUSCLE_NAMES, musclesOf, sideOf } from "@/components/BodyMap";
 import { InstallBanner, InstallButton } from "@/components/InstallApp";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -327,6 +327,38 @@ function EquipBadge({ equip }) {
 // "10-12" -> "10"; "30s" -> "30s"
 const repsHint = (reps) => String(reps || "").split("-")[0];
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+// Cardio conta como 1 bloco (duração/distância); o resto usa ex.sets.
+const isCardio = (ex) => ex?.group === "cardio";
+const setCountOf = (ex) => (isCardio(ex) ? 1 : (ex?.sets || 1));
+
+// Painel de cardio: duração (min) e distância (km) no lugar de séries×reps×peso.
+function CardioPanel({ ex, done, log, onToggle, onLog }) {
+  const isDone = done.includes(0);
+  const row = log?.[0] || {};
+  const suggMin = parseInt(String(ex.reps), 10) || 20;
+  const inputCls = "w-full bg-transparent outline-none text-lg font-bold tabular-nums";
+  const complete = () => {
+    if (!isDone && (row.min == null || row.min === "")) onLog(0, "min", String(suggMin));
+    onToggle(0);
+  };
+  return (
+    <div className="mt-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div style={{ background: isDone ? "rgba(70,224,160,.12)" : "rgba(19,22,27,.55)", border: `1px solid ${isDone ? C.mintDim : "rgba(255,255,255,.05)"}` }} className="rounded-2xl px-3 py-2">
+          <p style={{ color: C.mut2, ...label }} className="text-[11px] flex items-center gap-1"><Timer size={11} /> Duração (min)</p>
+          <input value={row.min ?? ""} onChange={(e) => onLog(0, "min", e.target.value)} inputMode="numeric" placeholder={String(suggMin)} aria-label="Duração em minutos" style={{ color: C.text, ...body }} className={inputCls} />
+        </div>
+        <div style={{ background: isDone ? "rgba(70,224,160,.12)" : "rgba(19,22,27,.55)", border: `1px solid ${isDone ? C.mintDim : "rgba(255,255,255,.05)"}` }} className="rounded-2xl px-3 py-2">
+          <p style={{ color: C.mut2, ...label }} className="text-[11px] flex items-center gap-1"><MapPin size={11} /> Distância (km)</p>
+          <input value={row.km ?? ""} onChange={(e) => onLog(0, "km", e.target.value)} inputMode="decimal" placeholder="opcional" aria-label="Distância em km" style={{ color: C.text, ...body }} className={inputCls} />
+        </div>
+      </div>
+      <button onClick={complete} style={{ background: isDone ? C.mintDim : C.card2, color: isDone ? C.mint : C.text, border: `1px solid ${isDone ? C.mint : C.line}`, ...body }} className="w-full rounded-2xl py-2.5 mt-2 text-sm font-semibold flex items-center justify-center gap-2">
+        <Check size={16} strokeWidth={3} /> {isDone ? "Cardio concluído" : "Marcar cardio como feito"}
+      </button>
+    </div>
+  );
+}
 
 function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progression, startKg }) {
   const inputCls = "w-full bg-transparent text-center outline-none text-sm font-semibold tabular-nums py-2";
@@ -368,8 +400,9 @@ function SetTable({ ex, done, log, prev, onToggle, onLog, onBlurCell, progressio
   );
 }
 
-function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell, onSwap, onSwapTo, onOpen, progression, startKg }) {
-  const total = ex.sets;
+function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell, onSwap, onSwapTo, onOpen, onAddSet, onRemoveSet, onRemoveExercise, progression, startKg }) {
+  const cardio = isCardio(ex);
+  const total = setCountOf(ex);
   const completed = done.length;
   const allDone = completed >= total;
   const [resting, setResting] = useState(false);
@@ -410,19 +443,24 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
             {meta > 0 && <span style={{ background: "rgba(140,123,255,.14)", color: C.indigo, ...label }} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px]"><LineIcon size={10} /> Meta {meta}kg</span>}
           </div>
           <button onClick={() => onOpen("geral")} className="text-left block"><h3 style={{ color: C.text, ...body }} className="font-semibold leading-snug text-[16px]">{ex.name}</h3></button>
-          <p style={{ color: C.mut, ...body }} className="text-[13px] mt-0.5">{ex.sets} séries • {ex.reps} reps{(best || startKg) ? ` • ${best || startKg} kg` : ""}</p>
-          <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-0.5 flex items-center gap-1 truncate"><span style={{ color: C.hl }}>{ex.muscle}</span> · <Timer size={11} /> {ex.rest}s</p>
+          {cardio
+            ? <p style={{ color: C.mut, ...body }} className="text-[13px] mt-0.5 flex items-center gap-1"><Timer size={12} /> {ex.reps}</p>
+            : <p style={{ color: C.mut, ...body }} className="text-[13px] mt-0.5">{total} séries • {ex.reps} reps{(best || startKg) ? ` • ${best || startKg} kg` : ""}</p>}
+          <p style={{ color: C.mut2, ...body }} className="text-[11px] mt-0.5 flex items-center gap-1 truncate"><span style={{ color: C.hl }}>{ex.muscle}</span>{cardio ? "" : <> · <Timer size={11} /> {ex.rest}s</>}</p>
         </div>
         <OptionsMenu ariaLabel={`Opções de ${ex.name}`} items={[
           { icon: Info, label: "Ver detalhes", onClick: () => onOpen("geral") },
           { icon: Play, label: "Como fazer", onClick: () => onOpen("como") },
           { icon: Replace, label: "Trocar exercício", hint: "Mesmo grupo muscular", onClick: () => onSwap(idx) },
-          ...equipsAvail.filter((eq) => eq !== ex.equip).map((eq) => ({ icon: EQUIP[eq].icon, label: `Fazer com ${EQUIP[eq].label.toLowerCase()}`, onClick: () => switchEquip(eq) })),
+          ...(cardio ? [] : equipsAvail.filter((eq) => eq !== ex.equip).map((eq) => ({ icon: EQUIP[eq].icon, label: `Fazer com ${EQUIP[eq].label.toLowerCase()}`, onClick: () => switchEquip(eq) }))),
+          onAddSet && !cardio ? { icon: Plus, label: "Adicionar série", onClick: () => onAddSet(idx) } : null,
+          onRemoveSet && !cardio && total > 1 ? { icon: Minus, label: "Remover série", onClick: () => onRemoveSet(idx) } : null,
+          onRemoveExercise ? { icon: Trash2, label: "Remover exercício", danger: true, onClick: () => onRemoveExercise(idx) } : null,
         ]} />
       </div>
 
       {/* alternar peso livre / máquina */}
-      {equipsAvail.length > 1 && (
+      {!cardio && equipsAvail.length > 1 && (
         <div className="flex items-center gap-1.5 mt-3 overflow-x-auto overscroll-x-contain no-scrollbar">
           {equipsAvail.map((eq) => {
             const on = ex.equip === eq;
@@ -432,9 +470,23 @@ function ExerciseCard({ ex, idx, done, log, prev, onToggleSet, onLog, onBlurCell
         </div>
       )}
 
-      <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} startKg={startKg} />
-
-      {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
+      {cardio ? (
+        <CardioPanel ex={ex} done={done} log={log} onToggle={onToggleSet} onLog={onLog} />
+      ) : (
+        <>
+          <SetTable ex={ex} done={done} log={log} prev={prev} onToggle={handleSet} onLog={onLog} onBlurCell={onBlurCell} progression={progression} startKg={startKg} />
+          {(onAddSet || onRemoveSet) && (
+            <div className="flex items-center justify-center gap-2 mt-2.5">
+              <button onClick={() => onRemoveSet(idx)} disabled={total <= 1} aria-label="Remover uma série"
+                style={{ background: C.card, color: total <= 1 ? C.mut2 : C.mut, border: `1px solid ${C.line}`, ...label }} className="rounded-full px-3.5 py-1.5 text-[12px] flex items-center gap-1"><Minus size={14} /> Série</button>
+              <span style={{ color: C.mut2, ...body }} className="text-xs tabular-nums w-8 text-center">{total} séries</span>
+              <button onClick={() => onAddSet(idx)} disabled={total >= 10} aria-label="Adicionar uma série"
+                style={{ background: C.card, color: total >= 10 ? C.mut2 : C.amberSoft, border: `1px solid ${C.line}`, ...label }} className="rounded-full px-3.5 py-1.5 text-[12px] flex items-center gap-1"><Plus size={14} /> Série</button>
+            </div>
+          )}
+          {resting && !allDone && <RestTimer seconds={ex.rest} onDone={() => setResting(false)} onSkip={() => setResting(false)} />}
+        </>
+      )}
     </div>
   );
 }
@@ -465,12 +517,13 @@ function sessionVolume(day, session) {
 function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, onComplete, goPlan, goCoach, goProgress }) {
   const [detail, setDetail] = useState(null); // { item, idx, tab }
   const [swapFor, setSwapFor] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
   const dayIdx = plan.cycleIndex % plan.days.length;
   const day = plan.days[dayIdx];
-  const totalSets = day.exercises.reduce((a, e) => a + e.sets, 0);
-  const doneSets = day.exercises.reduce((a, e, i) => a + ((session.sets[i] || []).length), 0);
+  const totalSets = day.exercises.reduce((a, e) => a + setCountOf(e), 0);
+  const doneSets = day.exercises.reduce((a, e, i) => a + Math.min((session.sets[i] || []).length, setCountOf(e)), 0);
   const pct = totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
-  const allDone = day.exercises.every((e, i) => (session.sets[i] || []).length >= e.sets);
+  const allDone = day.exercises.length > 0 && day.exercises.every((e, i) => (session.sets[i] || []).length >= setCountOf(e));
   const elapsed = useElapsed(session.startedAt);
   const volume = Math.round(sessionVolume(day, session));
 
@@ -518,6 +571,40 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
       return { ...s, sets, log };
     });
     setSwapFor(null);
+  };
+  // Edita os exercícios do dia atual do plano.
+  const patchDay = (fn) => setPlan((p) => {
+    const di = p.cycleIndex % p.days.length;
+    return { ...p, days: p.days.map((d, k) => (k !== di ? d : { ...d, exercises: fn(d.exercises) })) };
+  });
+  const addSet = (exIdx) => patchDay((exs) => exs.map((e, ei) => (ei !== exIdx ? e : { ...e, sets: Math.min(10, (e.sets || 1) + 1) })));
+  const removeSet = (exIdx) => {
+    const old = day.exercises[exIdx]?.sets || 1;
+    if (old <= 1) return;
+    const removedIdx = old - 1;
+    patchDay((exs) => exs.map((e, ei) => (ei !== exIdx ? e : { ...e, sets: old - 1 })));
+    setSession((s) => {
+      const sets = { ...s.sets }; const log = { ...(s.log || {}) };
+      if (sets[exIdx]) sets[exIdx] = sets[exIdx].filter((i) => i !== removedIdx);
+      if (log[exIdx]) { const e = { ...log[exIdx] }; delete e[removedIdx]; log[exIdx] = e; }
+      return { ...s, sets, log };
+    });
+  };
+  const addExercise = (libItem) => {
+    patchDay((exs) => [...exs, makeExercise(libItem, profile.goal)]);
+    setAddOpen(false);
+  };
+  const removeExercise = (exIdx) => {
+    if (day.exercises.length <= 1) { window.alert("O treino precisa ter ao menos um exercício."); return; }
+    if (!window.confirm(`Remover "${day.exercises[exIdx].name}" do treino de hoje?`)) return;
+    patchDay((exs) => exs.filter((_, ei) => ei !== exIdx));
+    // Reindexa o progresso: os exercícios após o removido "sobem" um índice.
+    setSession((s) => {
+      const sets = {}; const log = {};
+      Object.keys(s.sets || {}).forEach((k) => { const i = +k; if (i < exIdx) sets[i] = s.sets[k]; else if (i > exIdx) sets[i - 1] = s.sets[k]; });
+      Object.keys(s.log || {}).forEach((k) => { const i = +k; if (i < exIdx) log[i] = s.log[k]; else if (i > exIdx) log[i - 1] = s.log[k]; });
+      return { ...s, sets, log };
+    });
   };
 
   const hasProgress = doneSets > 0;
@@ -601,6 +688,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
             onSwap={(idx) => setSwapFor(idx)}
             onSwapTo={(idx, li) => swapTo(idx, li, true)}
             onOpen={(tab) => setDetail({ item: ex, idx: i, tab })}
+            onAddSet={addSet} onRemoveSet={removeSet} onRemoveExercise={removeExercise}
             progression={profile.progression} startKg={startingLoad(ex.refId, profile)} />
         ))}
       </div>
@@ -608,6 +696,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
       {/* Ações rápidas (linhas com ícone e seta) */}
       <div className="mt-5 divide-y divide-[#2A313C]" style={{ borderTop: `1px solid #2A313C`, borderBottom: `1px solid #2A313C` }}>
         {[
+          { icon: Plus, t: "Adicionar exercício", fn: () => setAddOpen(true) },
           { icon: Replace, t: "Trocar treino do dia", fn: goPlan },
           { icon: Sparkles, t: "Pedir um treino ao coach", fn: goCoach },
           { icon: Scale, t: "Registrar peso", fn: goProgress },
@@ -638,6 +727,8 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
         const prompt = `A pessoa quer substituir "${e.name}" (músculo ${e.muscle}). Limitação: "${reason || "não informada"}". Sugira 1 a 2 alternativas para o MESMO grupo muscular respeitando a limitação. Diga nome e uma frase de execução. Se for dor/lesão, lembre de procurar avaliação profissional. Seja breve.`;
         return await callClaude([{ role: "user", content: prompt }], COACH_SYSTEM);
       }} />}
+
+      {addOpen && <AddExerciseSheet existing={day.exercises} onClose={() => setAddOpen(false)} onPick={addExercise} />}
     </div>
   );
 }
@@ -894,12 +985,48 @@ function SwapSheet({ ex, onClose, onPick, askSwapAI }) {
   );
 }
 
+/* Folha para adicionar um exercício ao treino do dia. */
+function AddExerciseSheet({ existing, onClose, onPick }) {
+  const [group, setGroup] = useState(GROUP_ORDER[0]);
+  const have = new Set((existing || []).map((e) => e.refId));
+  const list = byGroup(group);
+  return (
+    <div onClick={onClose} style={{ background: "rgba(0,0,0,.6)" }} className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg2, border: `1px solid ${C.line}` }} className="w-full max-w-[480px] lg:max-w-[560px] rounded-t-[28px] lg:rounded-3xl px-5 pb-5 pt-2.5 max-h-[88vh] overflow-y-auto an-sheet">
+        <div style={{ background: C.line }} className="w-10 h-1 rounded-full mx-auto mb-3 lg:hidden" />
+        <div className="relative flex items-center justify-center mb-1">
+          <h3 style={{ color: C.text, ...display }} className="text-lg font-bold">Adicionar exercício</h3>
+          <button onClick={onClose} aria-label="Fechar" style={{ color: C.mut, background: C.card }} className="absolute right-0 w-8 h-8 rounded-full flex items-center justify-center"><X size={17} /></button>
+        </div>
+        <p style={{ color: C.mut, ...body }} className="text-xs mb-3 text-center">Escolha o grupo e toque para incluir no treino de hoje.</p>
+
+        <div className="flex gap-1.5 mb-3 overflow-x-auto overscroll-x-contain no-scrollbar -mx-5 px-5">
+          {GROUP_ORDER.map((g) => <Chip key={g} on={group === g} onClick={() => setGroup(g)}>{GROUP_LABELS[g]}</Chip>)}
+        </div>
+
+        <div className="divide-y divide-[#2A313C]">
+          {list.map((a) => (
+            <button key={a.id} onClick={() => onPick(a)} className="w-full py-3 flex items-center gap-3.5 text-left active:bg-white/5 hover:bg-white/5">
+              <ExerciseMedia refId={a.id} body={a.body} size={56} radius={14} />
+              <div className="flex-1 min-w-0">
+                <p style={{ color: C.text, ...body }} className="font-semibold text-[15px] leading-snug">{a.name}</p>
+                <p style={{ color: C.mut2, ...body }} className="text-xs mt-0.5 flex items-center gap-1.5">{(EQUIP[a.equip] || EQUIP.maquina).label}{have.has(a.id) && <span style={{ background: C.mintDim, color: C.mint, ...label }} className="rounded-md px-1.5 py-0.5 text-[10px]">já no treino</span>}</p>
+              </div>
+              <Plus size={18} style={{ color: C.amber }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ============================== TELA: PLANO ==============================
    Mostra a divisão em ciclo (A → B → C → A…), o próximo dia e permite
    escolher qual treino fazer hoje. Toque num exercício abre o detalhe. */
 function dayStats(d) {
-  const sets = d.exercises.reduce((a, e) => a + (e.sets || 0), 0);
-  const secs = d.exercises.reduce((a, e) => a + (e.sets || 0) * (40 + (e.rest || 60)), 0);
+  const sets = d.exercises.reduce((a, e) => a + setCountOf(e), 0);
+  const secs = d.exercises.reduce((a, e) => a + setCountOf(e) * (40 + (e.rest || 60)), 0);
   const muscles = [];
   d.exercises.forEach((e) => musclesOf(e.body).main.forEach((s) => { if (!muscles.includes(s)) muscles.push(s); }));
   return { sets, minutes: Math.max(10, Math.round(secs / 60 / 5) * 5), muscles };
@@ -993,7 +1120,7 @@ function PlanScreen({ profile, plan, setPlan, session, setSession, buildFromConf
                     <ExerciseMedia refId={e.refId} body={e.body} size={44} radius={12} badge={false} />
                     <span className="flex-1 min-w-0">
                       <span style={{ color: C.text, ...body }} className="block text-sm font-medium truncate">{e.name}</span>
-                      <span style={{ color: C.mut2, ...body }} className="block text-xs">{e.sets} séries • {e.reps} reps</span>
+                      <span style={{ color: C.mut2, ...body }} className="block text-xs">{isCardio(e) ? e.reps : `${e.sets} séries • ${e.reps} reps`}</span>
                     </span>
                     <ChevronRight size={16} style={{ color: C.mut2 }} className="shrink-0" />
                   </button>
