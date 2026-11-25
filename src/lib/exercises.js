@@ -128,7 +128,8 @@ export function makeExercise(li, goal) {
     refId: li.id, name: li.name, muscle: li.muscle, group: li.group,
     pattern: li.pattern, equip: li.equip, machine: li.machine, anim: li.anim,
     body: li.body, instr: li.instr, cue: li.cue,
-    sets: li.group === "cardio" || li.group === "core" ? 3 : (goal === "emagrecer" ? 3 : 4),
+    // Cardio é um bloco único (duração/distância), não séries×reps.
+    sets: li.group === "cardio" ? 1 : li.group === "core" ? 3 : (goal === "emagrecer" ? 3 : 4),
     reps: li.reps, rest: restFor(goal, li.group),
   };
 }
