@@ -7,6 +7,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { LIB_BY_ID, byGroup, byPattern, makeExercise, buildPlan, buildCustomPlan, planToConfig, planFromAIJson, startingLoad, LIB_IDS_SPEC, autoDayName, GROUP_ORDER, GROUP_LABELS, dayLetter } from "@/lib/exercises";
 import { gifUrls } from "@/lib/media";
 import { loadState, patchState, signOut, askCoach } from "@/lib/data";
+import { APP_VERSION } from "@/lib/version";
 
 /* ============================== TEMA ============================== */
 const C = {
@@ -1386,6 +1387,7 @@ export default function Dashboard({ userName }) {
             <div style={{ background: C.card2, color: C.amber, ...display }} className="rounded-full w-9 h-9 flex items-center justify-center font-bold">{firstName.slice(0, 1).toUpperCase()}</div>
             <div className="min-w-0"><p style={{ color: C.text }} className="text-sm font-semibold truncate">{profile.name}</p><p style={{ color: C.mut2 }} className="text-xs truncate">{profile.goal} · {profile.level}</p></div>
           </div>
+          <p style={{ color: C.mut2, ...body }} className="text-[11px] text-center">TreinoCerto v{APP_VERSION}</p>
         </div>
       </aside>
 
@@ -1393,7 +1395,7 @@ export default function Dashboard({ userName }) {
       {/* Topo (celular/tablet) */}
       <div style={{ background: C.bg, borderBottom: `1px solid ${C.line}`, paddingTop: "calc(env(safe-area-inset-top) + 12px)" }} className="lg:hidden sticky top-0 z-40 px-4 pb-3">
         <div className="mx-auto max-w-[480px] md:max-w-[720px] flex items-center justify-between">
-          <div className="flex items-center gap-2"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold">Olá, {firstName}</span></div>
+          <div className="flex items-center gap-2 min-w-0"><div style={{ background: C.amber }} className="rounded-lg w-8 h-8 shrink-0 flex items-center justify-center"><Dumbbell size={18} color={C.bg} /></div><span style={{ color: C.text, ...display }} className="font-bold truncate">Olá, {firstName}</span><span style={{ color: C.mut2, ...body }} className="text-[10px] font-semibold shrink-0">v{APP_VERSION}</span></div>
           <button onClick={() => setTab("settings")} style={{ color: tab === "settings" ? C.amber : C.mut }} aria-label="Perfil"><User size={20} /></button>
         </div>
       </div>
@@ -1465,6 +1467,7 @@ function SettingsScreen({ profile, onReset, onSignOut, setProfile, setPlan, show
       <button onClick={() => setEditing(true)} style={{ background: C.amber, color: C.bg, ...display }} className="w-full rounded-2xl py-3 mt-3 font-bold">Editar e refazer plano</button>
       <button onClick={onSignOut} style={{ background: C.card, color: C.text, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><LogOut size={16} /> Sair da conta</button>
       <button onClick={onReset} style={{ background: C.card, color: C.red, border: `1px solid ${C.line}`, ...body }} className="w-full rounded-2xl py-3 mt-2 font-semibold flex items-center justify-center gap-2"><RotateCcw size={16} /> Apagar tudo e recomeçar</button>
+      <p style={{ color: C.mut2, ...body }} className="text-xs text-center mt-4">TreinoCerto · versão {APP_VERSION}</p>
     </div>
   );
 }

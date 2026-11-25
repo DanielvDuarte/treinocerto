@@ -104,6 +104,14 @@ Antes: criar o projeto no Supabase e rodar `supabase/schema.sql` (ver DEPLOY.md)
    muscular (dados já embutidos; falta a tela).
 4. Se o teste agradar: fechar **licença da Gym Visual** para os GIFs em produção.
 
+## Versionamento
+
+- A versão do app fica em **`src/lib/version.js`** (`APP_VERSION`) — fonte única,
+  exibida na tela principal (sidebar, topo do celular e Perfil).
+- **A cada correção ou novidade**, suba o número ali e adicione uma entrada em
+  **`CHANGELOG.md`** (PATCH = correção, MINOR = nova função, MAJOR = mudança grande).
+  Mantenha `package.json` com a mesma versão.
+
 ## Convenções
 
 - Respostas/UI em português do Brasil.
