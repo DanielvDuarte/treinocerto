@@ -5,6 +5,15 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.4.3] — 2026-11-25
+
+### Adicionado
+
+- **Concluir todas as séries** de uma vez (menu ⋮ da lista de exercícios): marca o
+  treino inteiro, preenchendo peso/reps sugeridos quando vazios — útil para finalizar
+  sem marcar série por série. Também há **Limpar marcações** para desfazer.
+- O mesmo menu ganhou atalho **Adicionar exercício**.
+
 ## [1.4.2] — 2026-11-25
 
 ### Alterado

@@ -608,6 +608,42 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
     });
   };
 
+  // Marca todas as séries de todos os exercícios como feitas (preenchendo peso/reps
+  // sugeridos quando vazios), para finalizar sem marcar uma a uma.
+  const markAllDone = () => {
+    if (allDone) return;
+    if (!window.confirm("Marcar TODAS as séries de todos os exercícios como feitas?")) return;
+    setSession((s) => {
+      const sets = { ...s.sets }; const log = { ...(s.log || {}) };
+      day.exercises.forEach((ex, i) => {
+        const count = setCountOf(ex);
+        const prev = tracking.lastLoads?.[ex.refId];
+        const sKg = startingLoad(ex.refId, profile);
+        const exLog = { ...(log[i] || {}) };
+        const arr = [];
+        for (let k = 0; k < count; k++) {
+          arr.push(k);
+          const row = { ...(exLog[k] || {}) };
+          if (isCardio(ex)) {
+            if (row.min == null || row.min === "") row.min = String(parseInt(String(ex.reps), 10) || 20);
+          } else {
+            if (row.reps == null || row.reps === "") row.reps = prev?.[k]?.reps ? String(prev[k].reps) : repsHint(ex.reps);
+            const sugg = suggestKg(prev?.[k], profile.progression) ?? (sKg != null ? sKg : null);
+            if ((row.kg == null || row.kg === "") && sugg != null) row.kg = String(sugg);
+          }
+          exLog[k] = row;
+        }
+        sets[i] = arr; log[i] = exLog;
+      });
+      return { ...s, sets, log };
+    });
+  };
+  const clearMarks = () => {
+    if (!doneSets) return;
+    if (!window.confirm("Limpar todas as marcações de séries deste treino?")) return;
+    setSession((s) => ({ ...s, sets: {} }));
+  };
+
   const hasProgress = doneSets > 0;
   const switchDay = (di) => {
     if (di === dayIdx) return;
@@ -673,6 +709,9 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
       <DayMuscles day={day} />
 
       <SectionLabel right={<OptionsMenu ariaLabel="Opções da lista" items={[
+        !allDone ? { icon: Check, label: "Concluir todas as séries", hint: "Marca o treino inteiro de uma vez", onClick: markAllDone } : null,
+        doneSets ? { icon: RotateCcw, label: "Limpar marcações", onClick: clearMarks } : null,
+        { icon: Plus, label: "Adicionar exercício", onClick: () => setAddOpen(true) },
         { icon: Calendar, label: "Trocar treino do dia", onClick: goPlan },
         { icon: Sparkles, label: "Pedir ajuste ao coach", onClick: goCoach },
       ]} trigger={(t) => <button onClick={t} aria-label="Opções da lista" style={GLASS} className="w-9 h-9 rounded-full flex items-center justify-center"><MoreHorizontal size={18} color={C.text} /></button>} />}>
