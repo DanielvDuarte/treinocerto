@@ -111,6 +111,8 @@ Antes: criar o projeto no Supabase e rodar `supabase/schema.sql` (ver DEPLOY.md)
 - **A cada correção ou novidade**, suba o número ali e adicione uma entrada em
   **`CHANGELOG.md`** (PATCH = correção, MINOR = nova função, MAJOR = mudança grande).
   Mantenha `package.json` com a mesma versão.
+- **Título do commit começa com a versão**: `vX.Y.Z: resumo` (ex.: `v1.1.1: corrige
+  pré-preenchimento de carga`). Use a versão nova que o commit introduz.
 
 ## Convenções
 
