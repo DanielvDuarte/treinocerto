@@ -5,6 +5,14 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.4.4] — 2026-11-25
+
+### Alterado
+
+- Durante o treino, o botão inferior deixou de ser o desabilitado "Faltam X séries"
+  e virou **"Concluir todas as séries"** (clicável): marca o treino inteiro e já
+  libera o **Finalizar treino**.
+
 ## [1.4.3] — 2026-11-25
 
 ### Adicionado

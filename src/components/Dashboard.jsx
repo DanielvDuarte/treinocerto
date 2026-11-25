@@ -753,7 +753,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
         ? <FloatingCTA tone="mint" icon={Trophy} onClick={onComplete}>Finalizar treino</FloatingCTA>
         : !session.startedAt
           ? <FloatingCTA icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
-          : <FloatingCTA icon={Timer} disabled>Faltam {totalSets - doneSets} séries</FloatingCTA>}
+          : <FloatingCTA icon={Check} onClick={markAllDone}>Concluir todas as séries</FloatingCTA>}
 
       {detail && (
         <ExerciseDetail item={detail.item} startTab={detail.tab} prevLoads={tracking.lastLoads}
