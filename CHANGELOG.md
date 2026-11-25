@@ -5,6 +5,13 @@ Sempre que houver correção ou novidade, suba o número lá e adicione uma entr
 
 Padrão: `MAJOR.MINOR.PATCH` — PATCH = correção, MINOR = nova função, MAJOR = mudança grande.
 
+## [1.4.1] — 2026-11-25
+
+### Alterado
+
+- Botão **"Iniciar treino"** agora em **verde** (destaque), deixando a ação de
+  começar o treino mais clara na tela Hoje.
+
 ## [1.4.0] — 2026-11-25
 
 ### Adicionado

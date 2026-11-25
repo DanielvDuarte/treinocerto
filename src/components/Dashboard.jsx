@@ -712,7 +712,7 @@ function TodayScreen({ profile, plan, setPlan, session, setSession, tracking, on
       {allDone
         ? <FloatingCTA tone="mint" icon={Trophy} onClick={onComplete}>Finalizar treino</FloatingCTA>
         : !session.startedAt
-          ? <FloatingCTA icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
+          ? <FloatingCTA tone="mint" icon={Play} onClick={startWorkout}>Iniciar treino</FloatingCTA>
           : <FloatingCTA icon={Timer} disabled>Faltam {totalSets - doneSets} séries</FloatingCTA>}
 
       {detail && (
